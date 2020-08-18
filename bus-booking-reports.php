@@ -1,115 +1,24 @@
 <?php
-/*
-Plugin Name: Bus Booking Manager Reports Add-on
-Plugin URI: https://travishowell.net/
-Description: Plugin to add reports and other functionality to bus booking manager.
-Version: 1.0
-Author: Travis Howell
-Author URI: https://travishowell.com/
-License: GPLv2 or later
-Text Domain: th_busreports
-*/
-
-
-add_action( 'init', 'th_bus_booking_reports');
-function th_bus_booking_reports() {
-    add_menu_page('Bus Manager', 'Bus Manager', 'manage_options', 'th_busreports', 'th_show_reports', 'dashicons-car', 36);
-}
-
-// add_action( 'init', 'th_bus_booking_reports_drivers' );
-function th_bus_booking_reports_drivers() {
-    $labels = array(
-        'name' => __('Bus Reports', 'th_busreports'),
-        'singular_name' => __( 'Bus Report' , 'th_busreports' ),
-        'add_new' => __( 'New Bus Report' , 'th_busreports' ),
-        'add_new_item' => __( 'Add New Bus Report' , 'th_busreports' ),
-        'edit_item' => __( 'Edit Bus Report' , 'th_busreports' ),
-        'new_item' => __( 'New Bus Report' , 'th_busreports' ),
-        'view_item' => __( 'View Bus Report' , 'th_busreports' ),
-        'search_items' => __( 'Search Bus Reports' , 'th_busreports' ),
-        'not_found' =>  __( 'No Bus Reports Found' , 'th_busreports' ),
-        'not_found_in_trash' => __( 'No Bus Reports found in Trash' , 'th_busreports' ),
-    );
-    $args = array(
-        'labels' => $labels,
-        'has_archive' => true,
-        'public' => true,
-        'hierarchical' => false,
-        'supports' => array(
-            'title', 
-            'editor', 
-            'excerpt', 
-            'custom-fields', 
-            'thumbnail',
-            'page-attributes'
-        ),
-        'rewrite'   => array( 'slug' => 'th_busreports' ),
-        'show_in_rest' => true
-    );
-
-    register_post_type( 'th_busreports', $args );
-}
-
-/* function th_busreports_register_taxonomy() {   
-    // books
-    $labels = array(
-        'name' => __( 'Drivers' , 'th_busreports_drivers' ),
-        'singular_name' => __( 'Driver', 'th_busreports_drivers' ),
-        'search_items' => __( 'Search Drivers' , 'th_busreports_drivers' ),
-        'all_items' => __( 'All Drivers' , 'th_busreports_drivers' ),
-        'edit_item' => __( 'Edit Driver' , 'th_busreports_drivers' ),
-        'update_item' => __( 'Update Drivers' , 'th_busreports_drivers' ),
-        'add_new_item' => __( 'Add New Driver' , 'th_busreports_drivers' ),
-        'new_item_name' => __( 'New Driver Name' , 'th_busreports_drivers' ),
-        'menu_name' => __( 'Drivers' , 'th_busreports_drivers' ),
-    );
-     
-    $args = array(
-        'labels' => $labels,
-        'hierarchical' => true,
-        'sort' => true,
-        'args' => array( 'orderby' => 'term_order' ),
-        'rewrite' => array( 'slug' => 'drivers' ),
-        'show_admin_column' => true,
-        'show_in_rest' => true
- 
-    );
-     
-    register_taxonomy( 'th_busreports_driver', array( 'th_busreports_driver' ), $args);
-     
-}
-add_action( 'init', 'th_busreports_register_taxonomy' ); */
-
-// Menu custom TODO MOVE
-function th_admin_menu() {
-    //add_options_page( 'Event Settings', 'Event Settings', 'delete_posts', 'mep_event_settings_page', array($this, 'plugin_page') );
-     add_submenu_page('th_busreports', 'Calendar', 'Bus Calendar', 'manage_options', 'bus-calendar-page', 'th_show_calendar');
-
-    //  add_submenu_page('admin.php?page=th_busreports', 'Drivers', 'Drivers', 'manage_options', 'th_busreports_drivers');
-
-     // Custom Reporting
-    //  add_submenu_page('wbbm_bus', 'Reports', 'Reports', 'manage_options', 'wbbm_custom_reports', array($this, 'wbbm_show_reports'));
-}
-
-add_action( 'admin_menu', 'th_admin_menu' );
-
 /**
- * @todo
- * Add driver post type
+ * Plugin Name: Bus Booking Manager Reports Add-on
+ * Plugin URI: https://travishowell.net/
+ * Description: Plugin to add reports and other functionality to bus booking manager.
+ * Version: 1.0
+ * Author: Travis Howell
+ * Author URI: https://travishowell.com/
+ * License: GPLv2 or later
+ * Text Domain: th_busreports
  */
-function th_add_driver_posts() {
-    // page=bus-reports-page
-    register_post_type('drivers', array(
-        'labels' => array(
-            'name' => __('Drivers'),
-            'singular_name' => __('Driver'),
-        ),
-        // 'public' => true,
-        // 'has_archive' => true,
-        // 'show_in_menu' => ''
-    ));
-}
 
+if (!defined('ABSPATH')) {
+    die;
+} // Cannot access pages directly.
+  
+include_once(ABSPATH . 'wp-admin/includes/plugin.php');
+if (is_plugin_active('woocommerce/woocommerce.php')) {
+    require_once(dirname(__FILE__)."/inc/th_bus_admin_settings.php");
+    require_once(dirname(__FILE__) . "/inc/th_bus_enqueue.php");
+}
 
 /**
  * Functions
@@ -131,8 +40,18 @@ function th_show_reports() {
 }
 
 function th_show_calendar() {
+    $month = isset($_GET['bus-month']) ?: date('m');
+    $day = isset($_GET['bus-month']) ?: date('d');
+    $year = isset($_GET['bus-year']) ?: date('Y');
+
+    $dateBuild = "$year-$month-$day";
+
+    th_build_calendar($month, $year, $dateBuild);
+}
+
+function th_build_calendar($month, $year, $dateBuild) {
   // Create array containing abbreviations of days of week.
-  $daysOfWeek = array('S', 'M', 'T', 'W', 'T', 'F', 'S');
+  $daysOfWeek = array('SUN', 'MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT');
 
   // What is the first day of the month in question?
   $firstDayOfMonth = mktime(0, 0, 0, $month, 1, $year);
@@ -155,7 +74,8 @@ function th_show_calendar() {
 
   $calendar = '<div>';
   $calendar .= "<div><button style='width:100%;' class='today button button-primary'>Today</button></div>";
-  $calendar .= "<table class='calendar'>";
+  $calendar .= "<div><button class='button day-change' data-direction='previous'>Prev Day</button><button class='button day-change' data-direction='next'>Next Day</button></div>";
+  $calendar .= "<table class='th-calendar'>";
   $calendar .= "<caption><span class='month-change' data-direction='previous' style='float:left;'><</span>$monthName $year<span class='month-change' data-direction='next' style='float:right;'>></span></caption>";
   $calendar .= "<tr>";
 
@@ -197,11 +117,12 @@ function th_show_calendar() {
 
     $date = "$year-$month-$currentDayRel";
 
-    $class =  ($date === $dateBuild) ? 'day viewing-day' : 'day';
+    $class = ($date === $dateBuild) ? 'day viewing-day' : 'day';
     $calendar .= "<td class='$class' rel='$date'>$currentDay</td>";
 
-    // Increment counters
+    th_bus_bookings($dateBuild, TRUE);
 
+    // Increment counters
     $currentDay++;
     $dayOfWeek++;
   }
@@ -219,9 +140,64 @@ function th_show_calendar() {
   $calendar .= "</tr>";
 
   $calendar .= "</table>";
-  $calendar .= "<div><button class='button day-change' data-direction='previous'>Prev Day</button><button class='button day-change' data-direction='next'>Next Day</button></div>";
   $calendar .= "</div>";
 
 //   addCalendarScripts();
   echo $calendar;
+}
+
+function th_bus_bookings($dateBuild, $fromDia=FALSE)
+{
+    $start = $fromDia ? 'DIA' : 'Fort Collins Transit Center';
+    $end = $fromDia ? 'Fort Collins Transit Center' : 'DIA';
+
+    $arr = array(
+        'post_type' => array('wbbm_bus'),
+        'posts_per_page' => -1,
+        'order' => 'ASC',
+        'orderby' => 'meta_value',
+        'meta_key' => 'wbbm_bus_start_time',
+        'meta_query' => array(
+            'relation' => 'AND',
+            array(
+                'key' => 'wbbm_bus_bp_stops',
+                'value' => $start,
+                'compare' => 'LIKE',
+            ),
+            array(
+                'key' => 'wbbm_bus_next_stops',
+                'value' => $end,
+                'compare' => 'LIKE',
+            ),
+        )
+    );
+
+    $loop = new WP_Query($arr);
+
+    while ($loop->have_posts()) {
+        $loop->the_post();
+        
+        $id = get_the_ID();
+        $pickups = th_bus_get_pickup_number($id, $dateBuild);
+
+        if ($pickups) {
+            echo '<pre>';
+            var_dump($pickups);
+            echo '</pre>';
+        }
+    }
+    
+
+}
+
+function th_bus_get_pickup_number($bus_id, $date)
+{
+    global $wpdb;
+    $table_name = $wpdb->prefix . "wbbm_bus_booking_list";
+  
+    $query = "SELECT boarding_point, COUNT(booking_id), bus_start as riders FROM $table_name WHERE bus_id='$bus_id' AND journey_date='$date' AND (status=2 OR status=1) GROUP BY boarding_point, bus_start ORDER BY bus_start ASC";
+  
+    $riders_by_location = $wpdb->get_results($query);
+  
+    return $riders_by_location;  
 }
