@@ -79,7 +79,8 @@ class TH_Setting_Controls
 
     // Menu custom TODO MOVE
     function th_admin_menu() {
-        //add_options_page( 'Event Settings', 'Event Settings', 'delete_posts', 'mep_event_settings_page', array($this, 'plugin_page') );
+        add_menu_page('Bus Manager', 'Bus Manager', 'manage_options',   'th_busreports', 'th_show_reports', 'dashicons-car', 36);
+
         add_submenu_page('th_busreports', 'Calendar', 'Bus Calendar', 'manage_options', 'bus-calendar-page', 'th_show_calendar');
 
         //  add_submenu_page('admin.php?page=th_busreports', 'Drivers', 'Drivers', 'manage_options', 'th_busreports_drivers');

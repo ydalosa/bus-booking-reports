@@ -1,3 +1,41 @@
 .th-calendar {
     width: 100%;
+    background: white;
+    border-radius: 1rem;
+    padding: 0.5rem;
+}
+.th-calendar td {
+    vertical-align: top;
+}
+.th-calenader--date {
+    min-height: 96px;
+    padding: 0.25rem;
+}
+.th-calendar--pill {
+    display: flex;
+    justify-content: space-between;
+    background: #84b4ff70;
+    margin-bottom: 0.25rem;
+    padding: 0 0.1rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.th-calendar--pill-booked {
+    background: #84b4ff;
+}
+.th-calendar--northbound {
+    background: #efbcc894;
+}
+.th-calendar--pill-booked.th-calendar--northbound {
+    background: #efbcc8;
+}
+.th-calenader--current-day {
+    background: #016087;
+    color: white;
+    border-radius: 0.25rem 0.25rem 0 0;
+    width: 100%;
+}
+.th-attendee-list {
+    display: none;
 }
