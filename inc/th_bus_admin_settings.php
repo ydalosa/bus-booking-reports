@@ -87,6 +87,9 @@ class TH_Setting_Controls
 
         // Custom Reporting
         //  add_submenu_page('wbbm_bus', 'Reports', 'Reports', 'manage_options', 'wbbm_custom_reports', array($this, 'wbbm_show_reports'));
+
+        // add_submenu_page('th_busreports', 'Reports', 'Reports', 'manage_options', 'wbbm_custom_reports', 'th_show_reports');
+
     }
 
     /**

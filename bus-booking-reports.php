@@ -24,28 +24,22 @@ if (is_plugin_active('woocommerce/woocommerce.php')) {
 /**
  * Functions
  */
-function th_show_reports()
-{
-    echo '<h3>hello</h3>';
-    // if (mage_get_isset('download_list') && mage_get_isset('bus_id')) {
-    //     ob_clean();
-    //     generate_report();
-    //     die();
-    //     wp_die();
-    // }
-
-    // echo '<div class="metabox-holder">';
-    // echo '<div id="wbbm_reports_container" class="postbox" style="padding: 2rem;">';
-    // wbbm_build_reports();
-    // echo '</div>';
-    // echo '</div>';
-}
-
+/**
+ * @todo send date & id to modal button on open
+ * @todo open link with paramaters to generate reports
+ * @todo finish generating reports, add header
+ */
 function th_show_calendar()
 {
     $month = isset($_GET['bus-month']) ?: date('m');
     $day = isset($_GET['bus-month']) ?: date('d');
     $year = isset($_GET['bus-year']) ?: date('Y');
+
+    if (isset($_GET['download_list']) && isset($_GET['bus_id']) && isset($_GET['date'])) {
+        $dateBuild = $_GET['date'];
+        th_show_reports($_GET['bus_id'], $_GET['date']);
+        wp_die();
+    }
 
     $dateBuild = "$year-$month-$day";
 
@@ -261,6 +255,115 @@ function th_bus_get_available_seat($bus_id, $date)
     return $total_mobile_users;
 }
 
+function th_generate_csv($arr, $time)
+{
+    $direction = mage_get_isset('bus_end_route') === 'DIA' ? 'Southbound' : 'Northbound';
+    // th_download_send_headers("data_export_" . date("Y-m-d") . ".csv");
+    print th_array2csv($arr, "$direction Passenger List " . $time . " " . date("Y-m-d") . ".csv");
+    // wp_die();
+}
+
+function th_generate_report($id, $dateBuild, $fromDia = FALSE) {
+    global $wpdb;
+
+    $start = $fromDia ? 'DIA' : 'Fort Collins Transit Center';
+    $end = $fromDia ? 'Fort Collins Transit Center' : 'DIA';
+
+    $id = get_the_ID();
+    $title = the_title('', '', false);
+
+    $boarding = $start;
+    $dropping = $end;
+
+    $pickups = th_bus_get_pickup_number($id, $dateBuild);
+
+    var_dump($pickups);
+    die();
+
+    $results = [
+      ['ID', 'Boarding Point', 'Tickets', 'First Name', 'Last Name', 'Phone', 'Email'],
+    ];
+
+    foreach ($pickups as $p) {
+      global $wpdb;
+      $table_name = $wpdb->prefix . "wbbm_bus_booking_list";
+      
+      $query = "SELECT DISTINCT order_id, COUNT(order_id) as tickets_purchased FROM $table_name WHERE boarding_point='$p->boarding_point' AND journey_date='$dateBuild' AND (status=2 OR status=1) GROUP BY order_id";
+
+      $order_ids = $wpdb->get_results($query);  
+
+      foreach ($order_ids as $o_id) {
+        $name = "<div data-id='$o_id->order_id'>";
+        $order = wc_get_order($o_id->order_id);
+        $name .= $order->get_billing_first_name();
+        $name .= ' ' . $order->get_billing_last_name();
+        $order->get_billing_email();
+
+        $results[] = [
+          'ID' => $o_id->order_id,
+          'Boarding Point' => $p->boarding_point,
+          'Tickets' => $o_id->tickets_purchased,
+          'First Name' => $order->get_billing_first_name(),
+          'Last Name' => $order->get_billing_last_name(),
+          'Phone' => $order->get_billing_phone(),
+          'Email' => $order->get_billing_email(),
+        ];
+      }
+    }
+
+    th_generate_csv($results, $title);
+
+    // wp_die();
+}
+
+function th_show_reports() {
+    if (isset($_GET['download_list']) && isset($_GET['bus_id'])) {
+        ob_clean();
+        th_generate_report();
+    }
+    wp_die();
+}
+
+function th_array2csv(array &$array, $filename)
+{
+    if (count($array) == 0) {
+        return null;
+    }
+
+
+    $fh = @fopen('php://output', 'w');
+    fprintf($fh, chr(0xEF) . chr(0xBB) . chr(0xBF));
+    header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+    header('Content-Description: File Transfer');
+    header('Content-type: text/csv');
+    header("Content-Disposition: attachment; filename={$filename}");
+    header('Expires: 0');
+    header('Pragma: public');
+    //  fputcsv( $fh, $header_row );
+
+    //  fputcsv($df, array_keys(reset($array)));
+    foreach ($array as $row) {
+        fputcsv($fh, $row);
+        // $csv .= implode( ',', $row );
+        // $csv .= "\n";
+    }
+    fclose($fh);
+
+    ob_end_flush();
+}
+
+function th_download_send_headers($filename)
+{
+
+    header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+    header('Content-Description: File Transfer');
+    header('Content-type: text/csv');
+    header("Content-Disposition: attachment; filename={$filename}");
+    header('Expires: 0');
+    header('Pragma: public');
+}
+
+
 function th_add_modal()
 {
     $html = '<div id="th_modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="th_modalLabel">
@@ -277,6 +380,9 @@ function th_add_modal()
                     <p>test test </p>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary mr-2">
+                        <span class="dashicons dashicons-admin-generic"></span>
+                    </button>
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -294,7 +400,7 @@ function th_add_calendar_scripts()
         (function($) {
             /** Modal functions */
             const Modal = {
-                open: function(header=null, html=null) {
+                open: function(header = null, html = null) {
                     if (header) {
                         $('.modal-title').html(header);
                     } else {
@@ -306,7 +412,7 @@ function th_add_calendar_scripts()
                     } else {
                         $('.modal-body').html('');
                     }
-                    
+
                     $('.modal').addClass('show').show();
                 },
                 close: function() {
@@ -317,7 +423,7 @@ function th_add_calendar_scripts()
             $('.modal-underlay').click(function(e) {
                 e.preventDefault();
 
-                Modal.close();  
+                Modal.close();
             });
 
             $('body').on('click', '.th-calendar--pill', function() {
@@ -326,7 +432,7 @@ function th_add_calendar_scripts()
                 const date = $(this).parents('.th-calenader--date').attr('rel');
                 const html = $(`.th-attendee-list[data-bus_id="${id}"]`).html() || '<span>No Passengers</span>';
 
-                Modal.open(route + ' ' + date, html);
+                Modal.open(route + ', ' + date, html);
             });
 
             setTimeout(() => {
