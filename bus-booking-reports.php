@@ -50,6 +50,8 @@ function th_show_calendar()
     $dateBuild = "$year-$month-$day";
 
     th_build_calendar($month, $year, $dateBuild);
+    th_add_modal();
+    th_add_calendar_scripts();
 }
 
 function th_build_calendar($month, $year, $dateBuild)
@@ -75,8 +77,7 @@ function th_build_calendar($month, $year, $dateBuild)
 
     $calendar = '<div>';
     $calendar .= "<div><button style='width:100%;' class='today button button-primary'>Today</button></div>";
-    $calendar .= "<div><button class='button day-change' data-direction='previous'>Prev Day</button><button class='button day-change' data-direction='next'>Next Day</button></div>";
-    $calendar .= "<table class='th-calendar' BORDER=1 CELLSPACING=0 cellpadding=0>";
+    $calendar .= "<table class='th-calendar' border=1 cellspacing=0 cellpadding=0>";
     $calendar .= "<caption><span class='month-change' data-direction='previous' style='float:left;'><</span>$monthName $year<span class='month-change' data-direction='next' style='float:right;'>></span></caption>";
     $calendar .= "<tr>";
 
@@ -129,7 +130,6 @@ function th_build_calendar($month, $year, $dateBuild)
     $calendar .= "</div>";
 
     echo $calendar;
-    th_add_calendar_scripts();
 }
 
 function th_bus_bookings($dateBuild, $fromDia = FALSE)
@@ -261,17 +261,80 @@ function th_bus_get_available_seat($bus_id, $date)
     return $total_mobile_users;
 }
 
+function th_add_modal()
+{
+    $html = '<div id="th_modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="th_modalLabel">
+        <div class="modal-underlay"></div>
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>test test </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>';
+
+    echo $html;
+}
+
 function th_add_calendar_scripts()
 {
     ob_start();
 ?>
     <script>
         (function($) {
-            console.log($);
+            /** Modal functions */
+            const Modal = {
+                open: function(header=null, html=null) {
+                    if (header) {
+                        $('.modal-title').html(header);
+                    } else {
+                        $('.modal-title').html('');
+                    }
+
+                    if (html) {
+                        $('.modal-body').html(html);
+                    } else {
+                        $('.modal-body').html('');
+                    }
+                    
+                    $('.modal').addClass('show').show();
+                },
+                close: function() {
+                    $('.modal').removeClass('show').hide();
+                },
+            }
+            $('[data-dismiss="modal"]').click(() => Modal.close());
+            $('.modal-underlay').click(function(e) {
+                e.preventDefault();
+
+                Modal.close();  
+            });
+
             $('body').on('click', '.th-calendar--pill', function() {
                 const id = $(this).attr('data-bus_id');
-                console.log(id);
-            })
+                const route = $(this).children('.th-calendar--title').text();
+                const date = $(this).parents('.th-calenader--date').attr('rel');
+                const html = $(`.th-attendee-list[data-bus_id="${id}"]`).html() || '<span>No Passengers</span>';
+
+                Modal.open(route + ' ' + date, html);
+            });
+
+            setTimeout(() => {
+                console.log('scrolling');
+                document.querySelector('.th-calenader--current-day').scrollIntoView();
+                window.scrollBy(0, -40);
+            }, 250)
+
         })(jQuery);
     </script>
 <?php
