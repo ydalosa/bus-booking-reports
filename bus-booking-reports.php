@@ -38,7 +38,8 @@ function th_show_calendar()
     if (isset($_GET['download_list']) && isset($_GET['bus_id']) && isset($_GET['date'])) {
         $dateBuild = $_GET['date'];
         th_show_reports($_GET['bus_id'], $_GET['date']);
-        wp_die();
+        die();
+        // wp_die();
     }
 
     $dateBuild = "$year-$month-$day";
@@ -255,44 +256,47 @@ function th_bus_get_available_seat($bus_id, $date)
     return $total_mobile_users;
 }
 
-function th_generate_csv($arr, $time)
+function th_generate_csv($arr, $title)
 {
-    $direction = mage_get_isset('bus_end_route') === 'DIA' ? 'Southbound' : 'Northbound';
-    // th_download_send_headers("data_export_" . date("Y-m-d") . ".csv");
-    print th_array2csv($arr, "$direction Passenger List " . $time . " " . date("Y-m-d") . ".csv");
+    print th_array2csv($arr, $title . " " . date("Y-m-d") . ".csv");
     // wp_die();
 }
 
 function th_generate_report($id, $dateBuild, $fromDia = FALSE) {
     global $wpdb;
 
+    $post = get_post($id);
+
     $start = $fromDia ? 'DIA' : 'Fort Collins Transit Center';
     $end = $fromDia ? 'Fort Collins Transit Center' : 'DIA';
 
-    $id = get_the_ID();
-    $title = the_title('', '', false);
+    $title = $post->post_title; // the_title('', '', false);
 
     $boarding = $start;
     $dropping = $end;
 
     $pickups = th_bus_get_pickup_number($id, $dateBuild);
 
-    var_dump($pickups);
-    die();
-
     $results = [
-      ['ID', 'Boarding Point', 'Tickets', 'First Name', 'Last Name', 'Phone', 'Email'],
+      ['ID', 'Pickup Time', 'Boarding Point', 'Dropping Point', 'Tickets', 'First Name', 'Last Name', 'Phone', 'Email'],
     ];
 
     foreach ($pickups as $p) {
       global $wpdb;
       $table_name = $wpdb->prefix . "wbbm_bus_booking_list";
       
-      $query = "SELECT DISTINCT order_id, COUNT(order_id) as tickets_purchased FROM $table_name WHERE boarding_point='$p->boarding_point' AND journey_date='$dateBuild' AND (status=2 OR status=1) GROUP BY order_id";
+      $query = "SELECT DISTINCT order_id, COUNT(order_id) as tickets_purchased FROM $table_name WHERE boarding_point='$p->boarding_point' AND journey_date='$dateBuild' AND bus_id='$id' AND (status=2 OR status=1) GROUP BY order_id ORDER BY bus_start ASC";
 
       $order_ids = $wpdb->get_results($query);  
 
       foreach ($order_ids as $o_id) {
+         $query = "SELECT droping_point, bus_start, journey_date FROM $table_name WHERE order_id='$o_id->order_id' AND journey_date='$dateBuild'";
+
+        $droppingPointBuild = $wpdb->get_results($query);//->droping_point;
+        $droppingPoint = $droppingPointBuild[0]->droping_point;
+        $busStart = $droppingPointBuild[0]->bus_start;
+        $journeyDate = $droppingPointBuild[0]->journey_date;
+
         $name = "<div data-id='$o_id->order_id'>";
         $order = wc_get_order($o_id->order_id);
         $name .= $order->get_billing_first_name();
@@ -301,7 +305,10 @@ function th_generate_report($id, $dateBuild, $fromDia = FALSE) {
 
         $results[] = [
           'ID' => $o_id->order_id,
+          // 'Date' => $journeyDate,
+          'Pickup Time' => $busStart,
           'Boarding Point' => $p->boarding_point,
+          'Dropping Point' => $droppingPoint,
           'Tickets' => $o_id->tickets_purchased,
           'First Name' => $order->get_billing_first_name(),
           'Last Name' => $order->get_billing_last_name(),
@@ -312,16 +319,14 @@ function th_generate_report($id, $dateBuild, $fromDia = FALSE) {
     }
 
     th_generate_csv($results, $title);
-
-    // wp_die();
 }
 
 function th_show_reports() {
-    if (isset($_GET['download_list']) && isset($_GET['bus_id'])) {
+    if (isset($_GET['download_list']) && isset($_GET['bus_id']) && isset($_GET['date'])) {
         ob_clean();
-        th_generate_report();
+        th_generate_report($_GET['bus_id'], $_GET['date']);
     }
-    wp_die();
+    // wp_die();
 }
 
 function th_array2csv(array &$array, $filename)
@@ -380,7 +385,7 @@ function th_add_modal()
                     <p>test test </p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary mr-2">
+                    <button type="button" class="btn th-reports--btn mr-2">
                         <span class="dashicons dashicons-admin-generic"></span>
                     </button>
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -432,7 +437,17 @@ function th_add_calendar_scripts()
                 const date = $(this).parents('.th-calenader--date').attr('rel');
                 const html = $(`.th-attendee-list[data-bus_id="${id}"]`).html() || '<span>No Passengers</span>';
 
+                $('.th-reports--btn').attr('data-id', id).attr('data-date', date);
+
                 Modal.open(route + ', ' + date, html);
+            });
+
+            $('body').on('click', '.th-reports--btn', function() {
+                $rel = $('.th-reports--btn');
+                $id = $rel.attr('data-id');
+                $date = $rel.attr('data-date');
+
+                window.open(`${window.location.href}&bus_id=${$id}&download_list=Y&date=${$date}`, '_blank');
             });
 
             setTimeout(() => {
