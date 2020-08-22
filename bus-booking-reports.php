@@ -21,13 +21,16 @@ if (is_plugin_active('woocommerce/woocommerce.php')) {
     require_once(dirname(__FILE__) . "/inc/th_bus_enqueue.php");
 }
 
+// Require autoloader
+require 'vendor/autoload.php';
+
+use Dompdf\Dompdf;
+
 /**
  * Functions
  */
 /**
- * @todo send date & id to modal button on open
- * @todo open link with paramaters to generate reports
- * @todo finish generating reports, add header
+ * @todo Don't generate empty reports
  */
 function th_show_calendar()
 {
@@ -256,24 +259,18 @@ function th_bus_get_available_seat($bus_id, $date)
     return $total_mobile_users;
 }
 
-function th_generate_csv($arr, $title)
+function th_generate_report_html($arr, $title)
 {
-    print th_array2csv($arr, $title . " " . date("Y-m-d") . ".csv");
-    // wp_die();
+    $filename = $title . " " . date("m-d-Y", strtotime($_GET['date'])) . ".pdf";
+    print th_download_report($arr, $filename);
 }
 
-function th_generate_report($id, $dateBuild, $fromDia = FALSE) {
+function th_generate_report($id, $dateBuild) {
     global $wpdb;
 
     $post = get_post($id);
 
-    $start = $fromDia ? 'DIA' : 'Fort Collins Transit Center';
-    $end = $fromDia ? 'Fort Collins Transit Center' : 'DIA';
-
     $title = $post->post_title; // the_title('', '', false);
-
-    $boarding = $start;
-    $dropping = $end;
 
     $pickups = th_bus_get_pickup_number($id, $dateBuild);
 
@@ -305,7 +302,6 @@ function th_generate_report($id, $dateBuild, $fromDia = FALSE) {
 
         $results[] = [
           'ID' => $o_id->order_id,
-          // 'Date' => $journeyDate,
           'Pickup Time' => $busStart,
           'Boarding Point' => $p->boarding_point,
           'Dropping Point' => $droppingPoint,
@@ -318,7 +314,7 @@ function th_generate_report($id, $dateBuild, $fromDia = FALSE) {
       }
     }
 
-    th_generate_csv($results, $title);
+    th_generate_report_html($results, $title);
 }
 
 function th_show_reports() {
@@ -329,40 +325,117 @@ function th_show_reports() {
     // wp_die();
 }
 
-function th_array2csv(array &$array, $filename)
+function th_download_report(array &$array, $filename)
 {
     if (count($array) == 0) {
         return null;
     }
 
+    $dompdf = new Dompdf();
 
-    $fh = @fopen('php://output', 'w');
-    fprintf($fh, chr(0xEF) . chr(0xBB) . chr(0xBF));
-    header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-    header('Content-Description: File Transfer');
-    header('Content-type: text/csv');
-    header("Content-Disposition: attachment; filename={$filename}");
-    header('Expires: 0');
-    header('Pragma: public');
-    //  fputcsv( $fh, $header_row );
+    // $fh = @fopen('php://output', 'w');
+    // fprintf($fh, chr(0xEF) . chr(0xBB) . chr(0xBF));
+    // header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+    // header('Content-Description: File Transfer');
+    // header('Content-type: text/html');
+    // header("Content-Disposition: attachment; filename={$filename}");
+    // header('Expires: 0');
+    // header('Pragma: public');
 
-    //  fputcsv($df, array_keys(reset($array)));
-    foreach ($array as $row) {
-        fputcsv($fh, $row);
-        // $csv .= implode( ',', $row );
-        // $csv .= "\n";
+    // header ( "Content-type: application/vnd.ms-excel" );
+    // header("Content-Disposition: attachment;Filename=$filename");    
+  
+    $html = '';
+
+    $style = "<style>
+    table, th, td {
+      border: 1px solid black;
+      border-collapse: collapse;
     }
-    fclose($fh);
+    .inline {
+        display: inline-block;
+        height: 80px;
+    }
+    </style>
+    ";
+
+    $html .= $style;
+    // fwrite($fh, $style);
+    $logo = th_base64('https://flyawayshuttle.com/wp-content/uploads/2020/07/Logo071720-1.png');
+
+    $header = "<div class='inline' style='width:75%;'><img style='width:25%;' src='$logo'></div>";
+    // fwrite($fh, $header);
+    $html .= $header;
+
+    $box = "<div class='inline' style='float: right;'>";
+    $box .= "<div>" . date("l", strtotime($_GET['date'])) . "</div>";
+    $box .= "<div>" . date("m-d-Y", strtotime($_GET['date'])) . "</div>";
+    /**
+     * @todo fill in driver
+     */
+    $box .= "<div>" . /* $route->driver; */ 'Gary VanDriel' . "</div>";
+    $box .= "</div>";
+    // fwrite($fh, $box);
+    $html .= $box;
+
+    // fwrite($fh, $header);
+    //  fputcsv($df, array_keys(reset($array)));
+
+    $table = "<table style='width: 100%;'>";  
+
+    foreach ($array as $key => $row) {
+        if ($key === 0) {
+            $table .= "<thead><tr>";
+            foreach ($row as $th) {
+                $table .= "<th>$th</th>";
+            }
+            $table .= "</tr></thead><tbody>";
+        } else {
+            $table .= "<tr>";
+            foreach ($row as $th) {
+                $table .= "<th>$th</th>";
+            }
+            $table .= "</tr>";
+        }
+   }
+
+    $table .= "</tbody></table>";
+
+    // fwrite($fh, $table);
+    $html .= $table;
+
+    $dompdf->loadHtml($html);
+    // (Optional) Setup the paper size and orientation
+    $dompdf->setPaper('A4', 'portrait');
+
+    // Render the HTML as PDF
+    $dompdf->render();
+
+    // Output the generated PDF to Browser
+    $dompdf->stream();
+    
+    // fclose($fh);
 
     ob_end_flush();
 }
 
+function th_base64($filepath)
+{
+    $type = pathinfo($filepath, PATHINFO_EXTENSION);
+    // Get the image and convert into string 
+    $img = file_get_contents($filepath); 
+
+    // Encode the image string data into base64 
+    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($img);
+    
+    return $base64;
+}
+
 function th_download_send_headers($filename)
 {
-
     header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
     header('Content-Description: File Transfer');
-    header('Content-type: text/csv');
+    header('Content-type: text/html');
     header("Content-Disposition: attachment; filename={$filename}");
     header('Expires: 0');
     header('Pragma: public');
