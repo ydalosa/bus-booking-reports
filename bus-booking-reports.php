@@ -283,7 +283,7 @@ function th_verify_order_status($id)
 function th_generate_report_html($arr, $title)
 {
     $filename = $title . " " . date("m-d-Y", strtotime($_GET['date'])) . ".pdf";
-    print th_download_report($arr, $filename);
+    print th_download_report($arr, $filename, $title);
 }
 
 function th_generate_report($id, $dateBuild) {
@@ -315,8 +315,10 @@ function th_generate_report($id, $dateBuild) {
         $busStart = $droppingPointBuild[0]->bus_start;
         $journeyDate = $droppingPointBuild[0]->journey_date;
 
-        $name = "<div data-id='$o_id->order_id'>";
         $order = wc_get_order($o_id->order_id);
+        if ($order->get_status() !== 'completed') continue;
+
+        $name = "<div data-id='$o_id->order_id'>";
         $name .= $order->get_billing_first_name();
         $name .= ' ' . $order->get_billing_last_name();
         $order->get_billing_email();
@@ -346,25 +348,13 @@ function th_show_reports() {
     // wp_die();
 }
 
-function th_download_report(array &$array, $filename)
+function th_download_report(array &$array, $filename, $title)
 {
     if (count($array) == 0) {
         return null;
     }
 
     $dompdf = new Dompdf();
-
-    // $fh = @fopen('php://output', 'w');
-    // fprintf($fh, chr(0xEF) . chr(0xBB) . chr(0xBF));
-    // header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-    // header('Content-Description: File Transfer');
-    // header('Content-type: text/html');
-    // header("Content-Disposition: attachment; filename={$filename}");
-    // header('Expires: 0');
-    // header('Pragma: public');
-
-    // header ( "Content-type: application/vnd.ms-excel" );
-    // header("Content-Disposition: attachment;Filename=$filename");    
   
     $html = '';
 
@@ -392,7 +382,7 @@ function th_download_report(array &$array, $filename)
     $html .= $header;
 
     $box = "<div class='inline' style='float: right;'>";
-    $box .= "<div>" . date("l", strtotime($_GET['date'])) . "</div>";
+    $box .= "<div>" . date("D", strtotime($_GET['date'])) . " $title</div>";
     $box .= "<div>" . date("m-d-Y", strtotime($_GET['date'])) . "</div>";
     /**
      * @todo fill in driver
