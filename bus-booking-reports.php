@@ -178,7 +178,8 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
         $available_seat     = th_available_seat($dateBuild);
 
         // TODO: Should not count refunded rider
-        $sold_seats         = $total_seat - $available_seat;
+        // TODO: Refunding partials..?
+        $sold_seats = $total_seat - $available_seat;
 
         $class = $sold_seats > 0 ? $classBuild . ' th-calendar--pill-booked' : $classBuild;
 
@@ -197,23 +198,26 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
                 global $wpdb;
                 $table_name = $wpdb->prefix . "wbbm_bus_booking_list";
 
-                $query = "SELECT DISTINCT order_id, COUNT(order_id) as tickets_purchased FROM $table_name WHERE boarding_point='$p->boarding_point' AND journey_date='$dateBuild' AND (status=2 OR status=1) GROUP BY order_id";
+                $query = "SELECT DISTINCT order_id, COUNT(order_id) as tickets_purchased FROM $table_name WHERE boarding_point='$p->boarding_point' AND journey_date='$dateBuild' AND bus_id='$id' AND (status=2 OR status=1) GROUP BY order_id";
 
                 $order_ids = $wpdb->get_results($query);
 
                 $name_build = '';
                 if ($order_ids) {
+                    $name_build .= '<div class="th-attendee-list" data-bus_id="' . $id . '">';
                     foreach ($order_ids as $o_id) {
-                        $name_build .= '<div class="th-attendee-list" data-bus_id="' . $id . '">';
+                        $order = wc_get_order($o_id->order_id);
+                        if ($order->get_status() !== 'completed') continue;
+
 
                         $name = "<div data-oid='$o_id->order_id'>";
-                        $order = wc_get_order($o_id->order_id);
+
                         $name .= $order->get_billing_first_name();
                         $name .= ' ' . $order->get_billing_last_name();
 
                         $name_build .= $name . ', ' . $o_id->tickets_purchased . ' Ticket(s)</div>';
-                        $name_build .= '</div>';
                     }
+                    $name_build .= '</div>';
                 } else {
                     $name_build = '<div>No Seats Booked</div>';
                 }
@@ -254,9 +258,26 @@ function th_bus_get_available_seat($bus_id, $date)
 {
     global $wpdb;
     $table_name = $wpdb->prefix . "wbbm_bus_booking_list";
-    $total_mobile_users = $wpdb->get_var("SELECT COUNT(booking_id) FROM $table_name WHERE bus_id=$bus_id AND journey_date='$date' AND (status=2 OR status=1)");
+    $order_ids = $wpdb->get_results("SELECT order_id FROM $table_name WHERE bus_id=$bus_id AND journey_date='$date' AND (status=2 OR status=1)");
 
-    return $total_mobile_users;
+    $completed_bookings = [];
+
+    if ($order_ids) {
+        foreach ($order_ids as $id) {
+            if (th_verify_order_status($id->order_id)) {
+                array_push($completed_bookings, $id->order_id);
+            }
+        }
+    }
+
+    return count($completed_bookings);
+}
+
+function th_verify_order_status($id)
+{
+    $order = wc_get_order($id);
+
+    return $order->get_status() === 'completed';
 }
 
 function th_generate_report_html($arr, $title)
@@ -356,6 +377,9 @@ function th_download_report(array &$array, $filename)
         display: inline-block;
         height: 80px;
     }
+    .shaded {
+        background: #e7e7e7;
+    }
     </style>
     ";
 
@@ -363,7 +387,7 @@ function th_download_report(array &$array, $filename)
     // fwrite($fh, $style);
     $logo = th_base64('https://flyawayshuttle.com/wp-content/uploads/2020/07/Logo071720-1.png');
 
-    $header = "<div class='inline' style='width:75%;'><img style='width:25%;' src='$logo'></div>";
+    $header = "<div class='inline' style='width:75%;'><img style='width:33%;' src='$logo'></div>";
     // fwrite($fh, $header);
     $html .= $header;
 
@@ -385,7 +409,7 @@ function th_download_report(array &$array, $filename)
 
     foreach ($array as $key => $row) {
         if ($key === 0) {
-            $table .= "<thead><tr>";
+            $table .= "<thead><tr class='shaded'>";
             foreach ($row as $th) {
                 $table .= "<th>$th</th>";
             }
@@ -412,7 +436,7 @@ function th_download_report(array &$array, $filename)
     $dompdf->render();
 
     // Output the generated PDF to Browser
-    $dompdf->stream();
+    $dompdf->stream($filename);
     
     // fclose($fh);
 
@@ -508,7 +532,7 @@ function th_add_calendar_scripts()
                 const id = $(this).attr('data-bus_id');
                 const route = $(this).children('.th-calendar--title').text();
                 const date = $(this).parents('.th-calenader--date').attr('rel');
-                const html = $(`.th-attendee-list[data-bus_id="${id}"]`).html() || '<span>No Passengers</span>';
+                const html = $(this).next(`.th-attendee-list[data-bus_id="${id}"]`).html() || '<span>No Passengers</span>';
 
                 $('.th-reports--btn').attr('data-id', id).attr('data-date', date);
 
@@ -516,6 +540,8 @@ function th_add_calendar_scripts()
             });
 
             $('body').on('click', '.th-reports--btn', function() {
+                if ($('#th_modal .modal-body').html() === '<span>No Passengers</span>') return;
+
                 $rel = $('.th-reports--btn');
                 $id = $rel.attr('data-id');
                 $date = $rel.attr('data-date');

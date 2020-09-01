@@ -1,3 +1,4 @@
+.btn, .close {cursor: pointer;}
 .th-calendar {
     width: 100%;
     background: white;
