@@ -15,10 +15,30 @@ if (!defined('ABSPATH')) {
     die;
 } // Cannot access pages directly.
 
+function th_drivers_table_create()
+{
+    global $wpdb;
+    $charset_collate = $wpdb->get_charset_collate();
+    $table_name = $wpdb->prefix . 'th_drivers';
+    $sql = "CREATE TABLE $table_name (
+        driver_id int(15) NOT NULL AUTO_INCREMENT,
+        first_name varchar(55) NOT NULL, 
+        last_name varchar(55) NOT NULL, 
+        phone varchar(55), 
+        email text,
+        PRIMARY KEY (driver_id)
+    ) $charset_collate;";
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+}
+register_activation_hook(__FILE__, 'th_drivers_table_create');
+
 include_once(ABSPATH . 'wp-admin/includes/plugin.php');
 if (is_plugin_active('woocommerce/woocommerce.php')) {
     require_once(dirname(__FILE__) . "/inc/th_bus_admin_settings.php");
     require_once(dirname(__FILE__) . "/inc/th_bus_enqueue.php");
+    require_once(dirname(__FILE__) . "/inc/TH_Driver.php");
+    require_once(dirname(__FILE__) . "/inc/TH_Strings.php");
 }
 
 // Require autoloader
@@ -50,6 +70,20 @@ function th_show_calendar()
     th_build_calendar($month, $year, $dateBuild);
     th_add_modal();
     th_add_calendar_scripts();
+}
+
+function th_drivers()
+{
+    $table = TH_Driver::buildTable();
+
+    $html = '';
+    $html .= $table;
+    $html .= TH_Driver::addButton();
+
+    echo $html;
+
+    th_add_modal();
+    th_add_drivers_scripts();
 }
 
 function th_build_calendar($month, $year, $dateBuild)
@@ -458,7 +492,7 @@ function th_download_send_headers($filename)
 
 function th_add_modal()
 {
-    $html = '<div id="th_modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="th_modalLabel">
+    $html = '<div id="th_modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="th_modal">
         <div class="modal-underlay"></div>
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -475,7 +509,8 @@ function th_add_modal()
                     <button type="button" class="btn th-reports--btn mr-2">
                         <span class="dashicons dashicons-admin-generic"></span>
                     </button>
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="th-btn th-btn-primary" data-dismiss="modal">Submit</button>
+                    <button type="button" class="th-btn th-btn-secondary" data-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -551,3 +586,84 @@ function th_add_calendar_scripts()
     $script = ob_get_clean();
     echo $script;
 }
+
+function th_add_drivers_scripts()
+{
+    ob_start();
+?>
+    <script>
+        (function($) {
+            $('.th-reports--btn').hide();
+
+            /** Modal functions */
+            const Modal = {
+                open: function(header = null, html = null) {
+                    if (header) {
+                        $('.modal-title').html(header);
+                    } else {
+                        $('.modal-title').html('');
+                    }
+
+                    if (html) {
+                        $('.modal-body').html(html);
+                    } else {
+                        $('.modal-body').html('');
+                    }
+
+                    $('.modal').addClass('show').show();
+                },
+                close: function() {
+                    $('.modal').removeClass('show').hide();
+                },
+            }
+            $('[data-dismiss="modal"]').click(() => Modal.close());
+            $('.modal-underlay').click(function(e) {
+                e.preventDefault();
+
+                Modal.close();
+            });
+
+            $('body').on('click', '.th-add-driver', function() {
+                const html = `<div>
+                    <div class="th-form-group">
+                        <label for="firstNameInput">First Name</label>
+                        <input type="text" class="form-control" id="firstNameInput" placeholder="First Name" required>
+                    </div>
+                    <div class="th-form-group">
+                        <label for="lastNameInput">Last Name</label>
+                        <input type="text" class="form-control" id="lastNameInput" placeholder="Last Name" required>
+                    </div>
+                    <div class="th-form-group">
+                        <label for="phoneNumberInput">Phone Number</label>
+                        <input type="text" class="form-control" id="phoneNumberInput" placeholder="Phone Number">
+                    </div>
+                    <div class="th-form-group">
+                        <label for="emailInput">Email</label>
+                        <input type="text" class="form-control" id="emailInput" placeholder="Email">
+                    </div>
+                </div>`;
+
+                Modal.open('New Driver', html);
+            });
+
+        })(jQuery);
+    </script>
+<?php
+    $script = ob_get_clean();
+    echo $script;
+}
+?>
+
+<form action="" method="POST" role="form">
+    <legend>Form title</legend>
+
+    <div class="form-group">
+        <label for="">label</label>
+        <input type="text" class="form-control" id="" placeholder="Input field">
+    </div>
+
+    
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+

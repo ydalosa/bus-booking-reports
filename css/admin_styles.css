@@ -1,4 +1,35 @@
 .btn, .close {cursor: pointer;}
+.th-btn {
+    cursor: pointer;
+    border-radius: 0.25rem;
+    background: white;
+    color: #2f2f2f;
+    border: 1px solid #737373;
+    padding: 0.25rem 0.5rem;
+    transition: 0.25s;
+}
+.th-btn:hover {
+    background: #f3f3f3;
+}
+.th-btn-primary {
+    background: #a8d3f9;
+    border-color: #496379;
+}
+.th-btn-secondary {
+    background: lightgray;
+}
+.modal-footer > .th-btn-secondary {
+    margin-left: 0.5rem;
+}
+.th-form-group {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+.th-form-group input {
+    flex: 1;
+    max-width: 60%;
+}
 .th-calendar {
     width: 100%;
     background: white;
@@ -40,7 +71,24 @@
 .th-attendee-list {
     display: none;
 }
-
+.th-table {
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 1rem;
+    background-color: transparent;
+}
+.th-table thead th {
+    vertical-align: bottom;
+    border-bottom: 2px solid #dee2e6;
+}
+.th-table td, .th-table th {
+    padding: .75rem;
+    vertical-align: top;
+    border-top: 1px solid #dee2e6;
+}
+.th-table th, .th-table td {
+    text-align: left;
+}
 /** Bootstrap 4 Styling */
 .mr-2 {margin-right: 1rem;}
 .modal {
