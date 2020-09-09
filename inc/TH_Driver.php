@@ -18,9 +18,9 @@ if ( !class_exists('TH_Driver' ) ) {
             if ($id) {
                 $this->id = $id;
 
-                $driver = $this->wpdb->get_var("SELECT * FROM $this->table WHERE `driver_id`='$id'");
+                $driver = $this->wpdb->get_results("SELECT * FROM $this->table WHERE `driver_id`='$id'");
             
-                foreach ($driver as $key => $val) {
+                foreach ($driver[0] as $key => $val) {
                     $this->{$key} = $val;
                 }
             } else {
@@ -52,11 +52,13 @@ if ( !class_exists('TH_Driver' ) ) {
             $this->wpdb->update(
                 $this->table,
                 array(
-                    'driver_id' => $this->id,
                     'first_name' => $this->first_name,
                     'last_name' => $this->last_name,
                     'phone' => $this->phone,
                     'email' => $this->email,
+                ),
+                array(
+                    'driver_id' => $this->id,
                 )
             );
 
@@ -88,17 +90,20 @@ if ( !class_exists('TH_Driver' ) ) {
                 $table .= "<th>". TH_Strings::snake_to_proper_case($a) . "</th>";
             }
 
+            $table .= "<th></th>"; // Manage button
+
             $table .= "</tr></thead>";
 
             $table .= "<tbody>";
 
             foreach ($drivers as $d) {
-                $first_name = $d['first_name'];
-                $last_name = $d['last_name'];
-                $phone = $d['phone'];
-                $email = $d['email'];
+                $id = $d->driver_id;
+                $first_name = $d->first_name;
+                $last_name = $d->last_name;
+                $phone = $d->phone;
+                $email = $d->email;
 
-                $table .= "<tr><td>$first_name</td><td>$last_name</td><td>$phone</td><td>$email</td></tr>";
+                $table .= "<tr data-driver_id='$id'><td>$first_name</td><td>$last_name</td><td>$phone</td><td>$email</td><td><button class='th-btn th-edit-driver' data-driver_id='$id'><span class='dashicons dashicons-admin-generic'></span></button></td></tr>";
             }
 
             return $table;
@@ -107,6 +112,40 @@ if ( !class_exists('TH_Driver' ) ) {
         public static function addButton()
         {
             return "<div><button class='th-btn th-add-driver'>Add Driver</button></div>";
+        }
+
+        public static function driverSelect()
+        {
+            $drivers = self::all();
+
+            $select = "<select class='th-driver-select'>";
+            $select .= "<option disabled selected>Assign a Driver</option>";
+
+            foreach ($drivers as $d) {
+                $select .= "<option value='$d->driver_id'>$d->first_name $d->last_name</option>";
+            }
+
+            $select .= "</select>";
+
+            return $select;
+        }
+
+        public static function getDriver($bus_id, $journey_date)
+        {
+            global $wpdb;
+
+            $table = $wpdb->prefix . "th_drivers_routes";
+
+            $driver = $wpdb->get_row("SELECT * FROM $table WHERE `bus_id`='$bus_id' AND `journey_date`='$journey_date'");
+
+            return $driver;
+        }
+
+        public static function initials($id)
+        {
+            $driver = new TH_Driver($id);
+
+            return $driver->first_name[0] . $driver->last_name[0];
         }
     }
 }

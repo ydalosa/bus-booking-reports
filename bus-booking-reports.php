@@ -30,6 +30,19 @@ function th_drivers_table_create()
     ) $charset_collate;";
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
+
+    // Create Drivers to routes pivot table
+    $table_name = $wpdb->prefix . 'th_drivers_routes';
+    $sql = "CREATE TABLE $table_name (
+        id int(15) NOT NULL AUTO_INCREMENT,
+        driver_id int(9) NOT NULL, 
+        bus_id int(9) NOT NULL, 
+        journey_date date NOT NULL,    
+        PRIMARY KEY (id)
+    ) $charset_collate;";
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+
 }
 register_activation_hook(__FILE__, 'th_drivers_table_create');
 
@@ -211,6 +224,11 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
         $total_seat = $values['wbbm_total_seat'][0];
         $available_seat     = th_available_seat($dateBuild);
 
+        $driver = TH_Driver::getDriver($id, $dateBuild);
+        $driver_id = $driver->driver_id;
+
+        $driver_initials = $driver ? TH_Driver::initials($driver_id) : '';
+
         // TODO: Should not count refunded rider
         // TODO: Refunding partials..?
         $sold_seats = $total_seat - $available_seat;
@@ -218,13 +236,16 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
         $class = $sold_seats > 0 ? $classBuild . ' th-calendar--pill-booked' : $classBuild;
 
         // List Route Time
-        $html = "<div class='th-calendar--pill $class' data-bus_id='$id'>";
+        $html = "<div class='th-calendar--pill $class' data-bus_id='$id' data-driver_id='$driver_id'>";
         $html .= "<div class='th-calendar--title'>$title</div>";
+        $html .= "<div>";
+        $html .= "<div class='th-calendar--riders'>$sold_seats</div>";
+        $html .= "<div class='th-calendar--driver-initials'>$driver_initials</div>";
+
         // TODO List Driver
         // List # of riders
-        $html .= "<div class='th-calendar--riders'>$sold_seats</div>";
         // Generate report button
-
+        $html .= "</div>";
         $html .= "</div>"; // End .th-calendar--pill
 
         if ($pickups) {
@@ -239,6 +260,11 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
                 $name_build = '';
                 if ($order_ids) {
                     $name_build .= '<div class="th-attendee-list" data-bus_id="' . $id . '">';
+                    /**
+                     * @todo IF driver add initial
+                     * function to get driver by bus_id & date
+                     */
+
                     foreach ($order_ids as $o_id) {
                         $order = wc_get_order($o_id->order_id);
                         if ($order->get_status() !== 'completed') continue;
@@ -246,6 +272,7 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
 
                         $name = "<div data-oid='$o_id->order_id'>";
 
+                        // @todo GET ACTUal passenge name from DB
                         $name .= $order->get_billing_first_name();
                         $name .= ' ' . $order->get_billing_last_name();
 
@@ -490,9 +517,13 @@ function th_download_send_headers($filename)
 }
 
 
+/**
+ * @todo Submit button inside form
+ */
 function th_add_modal()
 {
-    $html = '<div id="th_modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="th_modal">
+    $html = '
+    <div id="th_modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="th_modal">
         <div class="modal-underlay"></div>
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -509,7 +540,7 @@ function th_add_modal()
                     <button type="button" class="btn th-reports--btn mr-2">
                         <span class="dashicons dashicons-admin-generic"></span>
                     </button>
-                    <button type="button" class="th-btn th-btn-primary" data-dismiss="modal">Submit</button>
+                    <button type="submit" class="th-btn th-btn-primary">Submit</button>
                     <button type="button" class="th-btn th-btn-secondary" data-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -525,6 +556,8 @@ function th_add_calendar_scripts()
 ?>
     <script>
         (function($) {
+            $('#th_modal button[type="submit"]').hide();
+
             /** Modal functions */
             const Modal = {
                 open: function(header = null, html = null) {
@@ -555,13 +588,22 @@ function th_add_calendar_scripts()
 
             $('body').on('click', '.th-calendar--pill', function() {
                 const id = $(this).attr('data-bus_id');
+                const driver_id = $(this).attr('data-driver_id');
                 const route = $(this).children('.th-calendar--title').text();
                 const date = $(this).parents('.th-calenader--date').attr('rel');
-                const html = $(this).next(`.th-attendee-list[data-bus_id="${id}"]`).html() || '<span>No Passengers</span>';
+                const dropdown = `<?php echo TH_Driver::driverSelect(); ?>`;
+                
+                let html = $(this).next(`.th-attendee-list[data-bus_id="${id}"]`).html() || '<span>No Passengers</span>';
+                html += '<br>'+dropdown;
 
+                $('#th_modal').attr('data-id', id).attr('data-date', date);
                 $('.th-reports--btn').attr('data-id', id).attr('data-date', date);
 
                 Modal.open(route + ', ' + date, html);
+
+                if (driver_id) {
+                    $('.th-driver-select').val(driver_id);
+                }
             });
 
             $('body').on('click', '.th-reports--btn', function() {
@@ -574,6 +616,27 @@ function th_add_calendar_scripts()
                 window.open(`${window.location.href}&bus_id=${$id}&download_list=Y&date=${$date}`, '_blank');
             });
 
+            $('body').on('change', '.th-driver-select', function() {
+                const driver_id = $(this).val();
+                const bus_id = $('#th_modal').attr('data-id');
+                const journey_date = $('#th_modal').attr('data-date');
+
+                $.post(ajaxurl, {action: 'th_assign_route_driver', driver_id, bus_id, journey_date}, function(response) {
+                    // Find Date
+                    const container = $(`.th-calenader--date[rel="${journey_date}"]`);
+                    const cell = container.find(`.th-calendar--pill[data-bus_id="${bus_id}"]`);
+                    // Update data-driver_id
+                    cell.attr('data-driver_id', driver_id);
+                    // Add initials to cell
+                    cell.find('.th-calendar--driver-initials').text(response);
+
+                    // if (response === 'success') location.reload();
+                })
+
+            })
+
+
+
             setTimeout(() => {
                 console.log('scrolling');
                 document.querySelector('.th-calenader--current-day').scrollIntoView();
@@ -585,6 +648,69 @@ function th_add_calendar_scripts()
 <?php
     $script = ob_get_clean();
     echo $script;
+}
+
+add_action( 'wp_ajax_th_add_driver_action', 'th_add_driver_action' );
+function th_add_driver_action() {
+    $id = sanitize_text_field($_POST['driver_id']);
+    $f_name = sanitize_text_field($_POST['f_name']);
+    $l_name = sanitize_text_field($_POST['l_name']);
+    $p_number = sanitize_text_field($_POST['p_number']);
+    $email = sanitize_text_field($_POST['email']);
+
+    $driver = new TH_Driver($id);
+
+    $driver->first_name = $f_name; 
+    $driver->last_name = $l_name; 
+    $driver->phone = $p_number; 
+    $driver->email = $email;
+
+    if ($id) {
+        $driver->update();
+    } else {
+        $driver->save();
+    }
+
+    echo 'success';
+    wp_die();
+}
+
+add_action( 'wp_ajax_th_assign_route_driver', 'th_assign_route_driver' );
+function th_assign_route_driver() {
+    global $wpdb;
+
+    $table = $wpdb->prefix . "th_drivers_routes";
+
+    $driver_id = sanitize_text_field($_POST['driver_id']);
+    $bus_id = sanitize_text_field($_POST['bus_id']);
+    $journey_date = $_POST['journey_date'];
+
+    // Delete first
+    $wpdb->delete(
+        $table,
+        array(
+            'bus_id' => $bus_id,
+            'journey_date' => $journey_date,
+        )
+    );
+
+    $wpdb->insert(
+        $table,
+        array(
+          'driver_id' => $driver_id,
+          'bus_id' => $bus_id,
+          'journey_date' => $journey_date,
+        )
+    );
+
+    echo TH_Driver::initials($driver_id);
+    // echo 'success';
+    wp_die();
+}
+
+function th_get_driver($bus_id, $journey_date)
+{
+    return TH_Driver::getDriver($bus_id, $journey_date);
 }
 
 function th_add_drivers_scripts()
@@ -624,27 +750,96 @@ function th_add_drivers_scripts()
             });
 
             $('body').on('click', '.th-add-driver', function() {
-                const html = `<div>
+                const html = `<form id="thAddDriverForm">
                     <div class="th-form-group">
                         <label for="firstNameInput">First Name</label>
-                        <input type="text" class="form-control" id="firstNameInput" placeholder="First Name" required>
+                        <input type="text" class="form-control" id="firstNameInput" name="firstNameInput" placeholder="First Name" required>
+                        <div class="th-form-error">Oops, this is a required field!</div>
                     </div>
                     <div class="th-form-group">
                         <label for="lastNameInput">Last Name</label>
-                        <input type="text" class="form-control" id="lastNameInput" placeholder="Last Name" required>
+                        <input type="text" class="form-control" id="lastNameInput" name="lastNameInput"  placeholder="Last Name" required>
+                        <div class="th-form-error">Oops, this is a required field!</div>
                     </div>
                     <div class="th-form-group">
                         <label for="phoneNumberInput">Phone Number</label>
-                        <input type="text" class="form-control" id="phoneNumberInput" placeholder="Phone Number">
+                        <input type="text" class="form-control" id="phoneNumberInput" name="phoneNumberInput" placeholder="Phone Number">
                     </div>
                     <div class="th-form-group">
                         <label for="emailInput">Email</label>
-                        <input type="text" class="form-control" id="emailInput" placeholder="Email">
+                        <input type="text" class="form-control" id="emailInput" name="emailInput" placeholder="Email">
                     </div>
-                </div>`;
+                </form>`;
 
                 Modal.open('New Driver', html);
             });
+
+            $('body').on('click', '#th_modal button[type=submit]', function() {
+                th_gather_driver_form_info();
+            })
+
+            function th_gather_driver_form_info() {
+                $('.th-form-group-error').removeClass('th-form-group-error');
+
+                let error = false;
+
+                const driver_id = $('#thAddDriverForm').attr('data-driver_id');
+
+                const f_name = $('#firstNameInput').val();
+                const l_name = $('#lastNameInput').val();
+                const p_number = $('#phoneNumberInput').val();
+                const email = $('#emailInput').val();
+
+                if (!f_name) {
+                    $('#firstNameInput').parent().addClass('th-form-group-error');
+                    error = true;
+                }
+                if (!l_name) {
+                    $('#lastNameInput').parent().addClass('th-form-group-error');
+                    error = true;
+                }
+
+                if (error) return;
+
+                $.post(ajaxurl, {action: 'th_add_driver_action', driver_id, f_name, l_name, p_number, email}, function(response) {
+                    if (response === 'success') location.reload();
+                })
+            }
+
+            // Manage driver
+            $('body').on('click', '.th-edit-driver', function() {
+                const driver_id = $(this).attr('data-driver_id');
+                const parent_row = $(this).parents('tr');
+
+                const elements = parent_row.children('td');
+                const values = [];
+
+                elements.each((index, el) => values.push($(el).html()))
+
+                const html = `<form id="thAddDriverForm" data-driver_id="${driver_id}">
+                    <div class="th-form-group">
+                        <label for="firstNameInput">First Name</label>
+                        <input type="text" class="form-control" id="firstNameInput" name="firstNameInput" placeholder="First Name" value="${values[0]}" required>
+                        <div class="th-form-error">Oops, this is a required field!</div>
+                    </div>
+                    <div class="th-form-group">
+                        <label for="lastNameInput">Last Name</label>
+                        <input type="text" class="form-control" id="lastNameInput" name="lastNameInput"  placeholder="Last Name" value="${values[1]}" required>
+                        <div class="th-form-error">Oops, this is a required field!</div>
+                    </div>
+                    <div class="th-form-group">
+                        <label for="phoneNumberInput">Phone Number</label>
+                        <input type="text" class="form-control" id="phoneNumberInput" name="phoneNumberInput" placeholder="Phone Number" value="${values[2]}">
+                    </div>
+                    <div class="th-form-group">
+                        <label for="emailInput">Email</label>
+                        <input type="text" class="form-control" id="emailInput" name="emailInput" placeholder="Email" value="${values[3]}">
+                    </div>
+                </form>`;
+
+                Modal.open('Edit Driver', html);                
+            })
+
 
         })(jQuery);
     </script>
@@ -653,17 +848,3 @@ function th_add_drivers_scripts()
     echo $script;
 }
 ?>
-
-<form action="" method="POST" role="form">
-    <legend>Form title</legend>
-
-    <div class="form-group">
-        <label for="">label</label>
-        <input type="text" class="form-control" id="" placeholder="Input field">
-    </div>
-
-    
-
-    <button type="submit" class="btn btn-primary">Submit</button>
-</form>
-

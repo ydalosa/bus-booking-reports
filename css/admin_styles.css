@@ -12,24 +12,46 @@
     background: #f3f3f3;
 }
 .th-btn-primary {
-    background: #a8d3f9;
+    background: #3f78ab;
     border-color: #496379;
+    color: white;
+}
+.th-btn-primary:hover {
+    background: #376792;
+    border-color: #152a3a;
 }
 .th-btn-secondary {
     background: lightgray;
 }
+#th_modal .modal-title {margin: 0;}
 .modal-footer > .th-btn-secondary {
     margin-left: 0.5rem;
 }
 .th-form-group {
     display: flex;
     justify-content: space-between;
+    flex-wrap: wrap;
+    padding: 0.25rem;
     margin-bottom: 0.5rem;
+    transition: 0.5s;
+}
+.th-form-group-error {
+    background: #ffd9d9;
+    border-radius: 0.25rem;
+    border: 1px solid #ff2536;
 }
 .th-form-group input {
     flex: 1;
     max-width: 60%;
 }
+.th-form-error {
+    flex: 0 0 100%;
+    color: #f13838;
+    text-align: center;
+    padding: 0.25rem 0 0.5rem;
+    display: none;
+}
+.th-form-group-error > .th-form-error {display: block;}
 .th-calendar {
     width: 100%;
     background: white;

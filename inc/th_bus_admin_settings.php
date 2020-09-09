@@ -5,13 +5,8 @@ class TH_Setting_Controls
 
     function __construct()
     {
-        add_action( 'admin_init', array($this, 'th_bus_booking_reports'));
         add_action( 'admin_menu', array($this, 'th_admin_menu'));
         
-    }
-
-    function th_bus_booking_reports() {
-        add_menu_page('Bus Manager', 'Bus Manager', 'manage_options', 'th_busreports', 'th_show_reports', 'dashicons-car', 10);
     }
 
     // Menu custom TODO MOVE
