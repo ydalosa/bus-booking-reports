@@ -130,7 +130,7 @@ if ( !class_exists('TH_Driver' ) ) {
             return $select;
         }
 
-        public static function getDriver($bus_id, $journey_date)
+        public static function getRouteDriver($bus_id, $journey_date)
         {
             global $wpdb;
 
@@ -139,6 +139,13 @@ if ( !class_exists('TH_Driver' ) ) {
             $driver = $wpdb->get_row("SELECT * FROM $table WHERE `bus_id`='$bus_id' AND `journey_date`='$journey_date'");
 
             return $driver;
+        }
+
+        public static function name($id)
+        {
+            $driver = new TH_Driver($id);
+
+            return $driver->first_name . ' ' . $driver->last_name;
         }
 
         public static function initials($id)

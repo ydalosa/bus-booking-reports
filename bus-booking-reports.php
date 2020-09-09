@@ -74,8 +74,7 @@ function th_show_calendar()
     if (isset($_GET['download_list']) && isset($_GET['bus_id']) && isset($_GET['date'])) {
         $dateBuild = $_GET['date'];
         th_show_reports($_GET['bus_id'], $_GET['date']);
-        die();
-        // wp_die();
+        wp_die();
     }
 
     $dateBuild = "$year-$month-$day";
@@ -224,7 +223,7 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
         $total_seat = $values['wbbm_total_seat'][0];
         $available_seat     = th_available_seat($dateBuild);
 
-        $driver = TH_Driver::getDriver($id, $dateBuild);
+        $driver = TH_Driver::getRouteDriver($id, $dateBuild);
         $driver_id = $driver->driver_id;
 
         $driver_initials = $driver ? TH_Driver::initials($driver_id) : '';
@@ -344,7 +343,12 @@ function th_verify_order_status($id)
 function th_generate_report_html($arr, $title)
 {
     $filename = $title . " " . date("m-d-Y", strtotime($_GET['date'])) . ".pdf";
-    print th_download_report($arr, $filename, $title);
+
+    $driver_id = $_GET['driver_id'];
+
+    $driver = TH_Driver::name($driver_id);
+
+    print th_download_report($arr, $filename, $title, $driver);
 }
 
 function th_generate_report($id, $dateBuild) {
@@ -409,7 +413,7 @@ function th_show_reports() {
     // wp_die();
 }
 
-function th_download_report(array &$array, $filename, $title)
+function th_download_report(array &$array, $filename, $title, $driver="Gary VanDriel")
 {
     if (count($array) == 0) {
         return null;
@@ -448,7 +452,7 @@ function th_download_report(array &$array, $filename, $title)
     /**
      * @todo fill in driver
      */
-    $box .= "<div>" . /* $route->driver; */ 'Gary VanDriel' . "</div>";
+    $box .= "<div>" . $driver . "</div>";
     $box .= "</div>";
     // fwrite($fh, $box);
     $html .= $box;
@@ -609,11 +613,12 @@ function th_add_calendar_scripts()
             $('body').on('click', '.th-reports--btn', function() {
                 if ($('#th_modal .modal-body').html() === '<span>No Passengers</span>') return;
 
-                $rel = $('.th-reports--btn');
-                $id = $rel.attr('data-id');
-                $date = $rel.attr('data-date');
+                const $rel = $('.th-reports--btn');
+                const $id = $rel.attr('data-id');
+                const $date = $rel.attr('data-date');
+                const $driver_id = $('.th-driver-select').val();
 
-                window.open(`${window.location.href}&bus_id=${$id}&download_list=Y&date=${$date}`, '_blank');
+                window.open(`${window.location.href}&bus_id=${$id}&download_list=Y&date=${$date}&driver_id=${$driver_id}`, '_blank');
             });
 
             $('body').on('change', '.th-driver-select', function() {
@@ -710,7 +715,7 @@ function th_assign_route_driver() {
 
 function th_get_driver($bus_id, $journey_date)
 {
-    return TH_Driver::getDriver($bus_id, $journey_date);
+    return TH_Driver::getRouteDriver($bus_id, $journey_date);
 }
 
 function th_add_drivers_scripts()
