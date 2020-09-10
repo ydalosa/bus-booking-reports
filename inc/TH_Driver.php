@@ -19,10 +19,13 @@ if ( !class_exists('TH_Driver' ) ) {
                 $this->id = $id;
 
                 $driver = $this->wpdb->get_results("SELECT * FROM $this->table WHERE `driver_id`='$id'");
-            
-                foreach ($driver[0] as $key => $val) {
-                    $this->{$key} = $val;
+
+                if (is_array($driver[0]) || is_object($driver[0])) {
+                    foreach ($driver[0] as $key => $val) {
+                        $this->{$key} = $val;
+                    }
                 }
+
             } else {
                 foreach (self::$attributes as $att) {
                     $this->{$att} = '';
@@ -118,7 +121,7 @@ if ( !class_exists('TH_Driver' ) ) {
         {
             $drivers = self::all();
 
-            $select = "<select class='th-driver-select'>";
+            $select = "<label>Driver:</label><br><select class='th-driver-select'>";
             $select .= "<option disabled selected>Assign a Driver</option>";
 
             foreach ($drivers as $d) {
@@ -143,6 +146,8 @@ if ( !class_exists('TH_Driver' ) ) {
 
         public static function name($id)
         {
+            if ($id == 'null') return 'No Driver Assigned';
+
             $driver = new TH_Driver($id);
 
             return $driver->first_name . ' ' . $driver->last_name;
