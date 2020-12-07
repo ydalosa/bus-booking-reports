@@ -40,7 +40,7 @@
     border-radius: 0.25rem;
     border: 1px solid #ff2536;
 }
-.th-form-group input {
+.th-form-group input, .th-form-group select {
     flex: 1;
     max-width: 60%;
 }
@@ -77,6 +77,7 @@
 }
 .th-calendar--pill-booked {
     background: #84b4ff;
+	border: 2px solid yellow;
 }
 .th-calendar--northbound {
     background: #efbcc894;
@@ -103,11 +104,15 @@
     vertical-align: bottom;
     border-bottom: 2px solid #dee2e6;
 }
+.th-table tbody tr:first td {
+    border-top: none !important;
+}
 .th-table td, .th-table th {
     padding: .75rem;
     vertical-align: top;
     border-top: 1px solid #dee2e6;
 }
+.th-add-driver {margin-top: 1.5rem;}
 .th-table th, .th-table td {
     text-align: left;
 }

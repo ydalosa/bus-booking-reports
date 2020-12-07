@@ -11,9 +11,11 @@ class TH_Setting_Controls
 
     // Menu custom TODO MOVE
     function th_admin_menu() {
-        add_menu_page('Bus Manager', 'Bus Manager', 'manage_options',   'th_busreports', 'th_show_reports', 'dashicons-car', 36);
+        add_menu_page('Bus Manager', 'Bus Manager', 'manage_options',   'th_busreports', 'th_show_calendar', 'dashicons-car', 36);
 
-        add_submenu_page('th_busreports', 'Calendar', 'Bus Calendar', 'manage_options', 'bus-calendar-page', 'th_show_calendar');
+//         add_submenu_page('th_busreports', 'Calendar', 'Bus Calendar', 'manage_options', 'bus-calendar-page', 'th_show_calendar');
+
+        add_submenu_page('th_busreports', 'Orders', 'Orders', 'manage_options', 'bus-orders', 'th_orders');
 
         add_submenu_page('th_busreports', 'Drivers', 'Drivers', 'manage_options', 'bus-drivers', 'th_drivers');
 

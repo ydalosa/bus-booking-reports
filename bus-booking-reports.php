@@ -22,9 +22,9 @@ function th_drivers_table_create()
     $table_name = $wpdb->prefix . 'th_drivers';
     $sql = "CREATE TABLE $table_name (
         driver_id int(15) NOT NULL AUTO_INCREMENT,
-        first_name varchar(55) NOT NULL, 
-        last_name varchar(55) NOT NULL, 
-        phone varchar(55), 
+        first_name varchar(55) NOT NULL,
+        last_name varchar(55) NOT NULL,
+        phone varchar(55),
         email text,
         PRIMARY KEY (driver_id)
     ) $charset_collate;";
@@ -35,9 +35,9 @@ function th_drivers_table_create()
     $table_name = $wpdb->prefix . 'th_drivers_routes';
     $sql = "CREATE TABLE $table_name (
         id int(15) NOT NULL AUTO_INCREMENT,
-        driver_id int(9) NOT NULL, 
-        bus_id int(9) NOT NULL, 
-        journey_date date NOT NULL,    
+        driver_id int(9) NOT NULL,
+        bus_id int(9) NOT NULL,
+        journey_date date NOT NULL,
         PRIMARY KEY (id)
     ) $charset_collate;";
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -51,6 +51,7 @@ if (is_plugin_active('woocommerce/woocommerce.php')) {
     require_once(dirname(__FILE__) . "/inc/th_bus_admin_settings.php");
     require_once(dirname(__FILE__) . "/inc/th_bus_enqueue.php");
     require_once(dirname(__FILE__) . "/inc/TH_Driver.php");
+    require_once(dirname(__FILE__) . "/inc/TH_Order.php");
     require_once(dirname(__FILE__) . "/inc/TH_Strings.php");
 }
 
@@ -125,12 +126,12 @@ function th_build_calendar($month, $year, $dateBuild)
     $calendar .= "<caption><a class='th-btn month-change' data-direction='previous' style='float:left;'>< Prev Month</a>";
 
     if ($month !== date('m')) {
-        $calendar .= "<a href='/wp-admin/admin.php?page=bus-calendar-page' class='today th-btn th-btn-primary'>Today</a>";
+        $calendar .= "<a href='/wp-admin/admin.php?page=th_busreports' class='today th-btn th-btn-primary'>Today</a>";
     }
 
     $calendar .= "<a class='th-btn month-change' data-direction='next' style='float:right;'>Next Month ></a></caption>";
     $calendar .= "<tr>";
-    
+
     foreach ($daysOfWeek as $day) {
         $calendar .= "<th class='header'>$day</th>";
     }
@@ -184,8 +185,8 @@ function th_build_calendar($month, $year, $dateBuild)
 
 function th_bus_bookings($dateBuild, $fromDia = FALSE)
 {
-    $start = $fromDia ? 'DIA' : 'Fort Collins Transit Center';
-    $end = $fromDia ? 'Fort Collins Transit Center' : 'DIA';
+    $start = $fromDia ? 'DIA' : 'Ft Collins Harmony Transfer Center';
+    $end = $fromDia ? 'Ft Collins Harmony Transfer Center' : 'DIA';
 
     $classBuild = $start === 'DIA' ? 'th-calendar--northbound' : 'th-calendar--southbound';
 
@@ -253,19 +254,19 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
         if ($pickups) {
             global $wpdb;
             $table_name = $wpdb->prefix . "wbbm_bus_booking_list";
-            
+
             $name_build = '<div class="th-attendee-list" data-bus_id="' . $id . '">';
 
             foreach ($pickups as $p) {
                 $query = "SELECT * FROM $table_name WHERE boarding_point='$p->boarding_point' AND journey_date='$dateBuild' AND bus_id='$id' AND (status=2 OR status=1) ORDER BY bus_start ASC";
-            
+
                 $riders = $wpdb->get_results($query);
 
                 if ($riders) {
                     foreach ($riders as $r) {
                         $order = wc_get_order($r->order_id);
                         if ($order->get_status() !== 'completed') continue;
-                    
+
 
                         $name = "<div style='display:flex;justify-content:space-between;margin-bottom:0.75rem;' data-oid='$r->order_id'>";
 
@@ -279,7 +280,7 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
                         $name_build .= $name;
                         // $name_build .= $name . ', ' . $o_id->tickets_purchased . ' Ticket(s)</div>';
                     }
-                    
+
                 } else {
                     $name_build = '<div>No Seats Booked</div>';
                 }
@@ -370,7 +371,7 @@ function th_generate_report($id, $dateBuild) {
 
     foreach ($pickups as $p) {
       $table_name = $wpdb->prefix . "wbbm_bus_booking_list";
-      
+
       $query = "SELECT * FROM $table_name WHERE boarding_point='$p->boarding_point' AND journey_date='$dateBuild' AND bus_id='$id' AND (status=2 OR status=1) ORDER BY bus_start ASC";
 
       $riders = $wpdb->get_results($query);
@@ -390,12 +391,12 @@ function th_generate_report($id, $dateBuild) {
                 'Phone' => $r->user_phone,
                 'Email' => $order->get_billing_email(),
           ];
-  
+
       }
     }
 
     th_generate_report_html($results, $title);
-      
+
 
 
 /*       foreach ($order_ids as $o_id) {
@@ -409,7 +410,7 @@ function th_generate_report($id, $dateBuild) {
         $busStart = $droppingPointBuild[0]->bus_start;
         $journeyDate = $droppingPointBuild[0]->journey_date;
 
-        
+
         $results[] = [
           'ID' => $o_id->order_id,
           'Pickup Time' => $busStart,
@@ -442,7 +443,7 @@ function th_download_report(array &$array, $filename, $title, $driver="None")
     }
 
     $dompdf = new Dompdf();
-  
+
     $html = '';
 
     $style = "<style>
@@ -482,7 +483,7 @@ function th_download_report(array &$array, $filename, $title, $driver="None")
     // fwrite($fh, $header);
     //  fputcsv($df, array_keys(reset($array)));
 
-    $table = "<table style='width: 100%;'>";  
+    $table = "<table style='width: 100%;'>";
 
     foreach ($array as $key => $row) {
         if ($key === 0) {
@@ -514,7 +515,7 @@ function th_download_report(array &$array, $filename, $title, $driver="None")
 
     // Output the generated PDF to Browser
     $dompdf->stream($filename);
-    
+
     // fclose($fh);
 
     ob_end_flush();
@@ -523,12 +524,12 @@ function th_download_report(array &$array, $filename, $title, $driver="None")
 function th_base64($filepath)
 {
     $type = pathinfo($filepath, PATHINFO_EXTENSION);
-    // Get the image and convert into string 
-    $img = file_get_contents($filepath); 
+    // Get the image and convert into string
+    $img = file_get_contents($filepath);
 
-    // Encode the image string data into base64 
+    // Encode the image string data into base64
     $base64 = 'data:image/' . $type . ';base64,' . base64_encode($img);
-    
+
     return $base64;
 }
 
@@ -587,7 +588,7 @@ function th_add_calendar_scripts()
             var urlParams = new URLSearchParams(window.location.search);
 
             const month_is_set = urlParams.get('bus_month');
-            const year_is_set = urlParams.get('bus-day');
+            const year_is_set = urlParams.get('bus_year');
 
             /** Modal functions */
             const Modal = {
@@ -622,6 +623,8 @@ function th_add_calendar_scripts()
                 const direction = $(this).attr('data-direction');
 
                 let prevDate = month_is_set ? new Date(month_is_set) :  new Date();
+                let year = year_is_set ? new Date(year_is_set) :  new Date();
+                year = year.getFullYear();
 
                 let newDate = direction === 'next' ? new Date(prevDate.setMonth(prevDate.getMonth() + 1)) : new Date(prevDate.setMonth(prevDate.getMonth() - 1));
 
@@ -632,8 +635,17 @@ function th_add_calendar_scripts()
                     month = '0'+month;
                 }
 
+                // year
+                if (month === 11) {
+                    month = '01';
+                    year += 1;
+                }
+
                 if (month_is_set) {
                     urlParams.set('bus_month', month);
+
+                    if (year && year !== new Date().getFullYear()) urlParams.set('bus_year', year);
+
                     window.location = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
                 } else {
                     window.location = `${window.location.href}&bus_month=${month}`;
@@ -646,7 +658,7 @@ function th_add_calendar_scripts()
                 const route = $(this).children('.th-calendar--title').text();
                 const date = $(this).parents('.th-calenader--date').attr('rel');
                 const dropdown = `<?php echo TH_Driver::driverSelect(); ?>`;
-                
+
                 let html = $(this).next(`.th-attendee-list[data-bus_id="${id}"]`).html() || '<span>No Passengers</span>';
                 html += '<br>'+dropdown;
 
@@ -715,9 +727,9 @@ function th_add_driver_action() {
 
     $driver = new TH_Driver($id);
 
-    $driver->first_name = $f_name; 
-    $driver->last_name = $l_name; 
-    $driver->phone = $p_number; 
+    $driver->first_name = $f_name;
+    $driver->last_name = $l_name;
+    $driver->phone = $p_number;
     $driver->email = $email;
 
     if ($id) {
@@ -892,7 +904,7 @@ function th_add_drivers_scripts()
                     </div>
                 </form>`;
 
-                Modal.open('Edit Driver', html);                
+                Modal.open('Edit Driver', html);
             })
 
 
@@ -902,4 +914,202 @@ function th_add_drivers_scripts()
     $script = ob_get_clean();
     echo $script;
 }
+
+/** Order editing functions */
+// function th_get_order($bus_id, $journey_date)
+// {
+//     return TH_Driver::getRouteDriver($bus_id, $journey_date);
+// }
+
+function th_orders()
+{
+    $table = TH_Order::buildTable();
+
+    $html = '<h2>In progress, do not use!</h2>';
+    $html .= $table;
+
+    echo $html;
+
+    th_add_modal();
+    th_add_orders_scripts();
+}
+
+add_action( 'wp_ajax_th_add_order_action', 'th_add_order_action' );
+function th_add_order_action() {
+    $id = sanitize_text_field($_POST['driver_id']);
+    $f_name = sanitize_text_field($_POST['f_name']);
+    $l_name = sanitize_text_field($_POST['l_name']);
+    $p_number = sanitize_text_field($_POST['p_number']);
+    $email = sanitize_text_field($_POST['email']);
+
+    $driver = new TH_Order($id);
+
+    $driver->first_name = $f_name;
+    $driver->last_name = $l_name;
+    $driver->phone = $p_number;
+    $driver->email = $email;
+
+    if ($id) {
+        $driver->update();
+    } else {
+        wp_die();
+    }
+
+    echo 'success';
+    wp_die();
+}
+
+
+function th_add_orders_scripts()
+{
+    ob_start();
+    ?>
+        <script>
+            (function($) {
+                $('.th-reports--btn').hide();
+
+                /** Modal functions */
+                const Modal = {
+                    open: function(header = null, html = null) {
+                        if (header) {
+                            $('.modal-title').html(header);
+                        } else {
+                            $('.modal-title').html('');
+                        }
+
+                        if (html) {
+                            $('.modal-body').html(html);
+                        } else {
+                            $('.modal-body').html('');
+                        }
+
+                        $('.modal').addClass('show').show();
+                    },
+                    close: function() {
+                        $('.modal').removeClass('show').hide();
+                    },
+                }
+                $('[data-dismiss="modal"]').click(() => Modal.close());
+                $('.modal-underlay').click(function(e) {
+                    e.preventDefault();
+
+                    Modal.close();
+                });
+
+                $('body').on('click', '#th_modal button[type=submit]', function() {
+                    th_gather_order_form_info();
+                })
+
+                function th_to_24hr_time(str) {
+
+                }
+
+                function th_gather_order_form_info() {
+                    $('.th-form-group-error').removeClass('th-form-group-error');
+
+                    let error = false;
+
+                    const driver_id = $('#thAddDriverForm').attr('data-driver_id');
+
+                    const f_name = $('#firstNameInput').val();
+                    const l_name = $('#lastNameInput').val();
+                    const p_number = $('#phoneNumberInput').val();
+                    const email = $('#emailInput').val();
+
+                    return;
+
+                    if (!f_name) {
+                        $('#firstNameInput').parent().addClass('th-form-group-error');
+                        error = true;
+                    }
+                    if (!l_name) {
+                        $('#lastNameInput').parent().addClass('th-form-group-error');
+                        error = true;
+                    }
+
+                    if (error) return;
+
+                    $.post(ajaxurl, {action: 'th_add_order_action', driver_id, f_name, l_name, p_number, email}, function(response) {
+                        if (response === 'success') location.reload();
+                    })
+                }
+
+                // Manage driver
+                $('body').on('click', '.th-edit-order', function() {
+                    const order_id = $(this).attr('data-order_id');
+                    const parent_row = $(this).parents('tr');
+
+                    const elements = parent_row.children('td');
+                    const values = [];
+
+                    elements.each((index, el) => values.push($(el).html()))
+
+                    const busTime = values[3]; // th_to_24hr_time(values[3]);
+
+                    const routeSelect = $('#thRoutesDropdown').html();
+                    const timeSelect = $('#thTimesDropdown').html();
+
+                    console.log(routeSelect)
+                    console.log(timeSelect)
+
+                    const html = `<form id="thAddOrderForm" data-order_id="${order_id}">
+                        <div class="th-form-group">
+                            <label for="userNameInput">Name</label>
+                            <input type="text" class="form-control" id="userNameInput" name="userNameInput" placeholder="Name" value="${values[0]}" required>
+                        </div>
+                        <div class="th-form-group">
+                            <label for="userPhoneInput">Phone Number</label>
+                            <input type="tel" class="form-control" id="userPhoneInput" name="userPhoneInput" placeholder="Phone Number" value="${values[1]}">
+                        </div>
+                        <div class="th-form-group">
+                            <label for="userEmailInput">Email</label>
+                            <input type="text" class="form-control" id="userEmailInput" name="userEmailInput" placeholder="Email" value="${values[2]}">
+                        </div>
+
+                        <div class="th-form-group">
+                            <label for="busStartInput">Time</label>
+                            <select id="busStartInput" name="busStartInput">
+                                ${timeSelect}
+                            </select>
+                        </div>
+                        <div class="th-form-group">
+                            <label for="journeyDateInput">Bus Date</label>
+                            <input type="date" class="form-control" id="journeyDateInput" name="journeyDateInput" placeholder="Bus Date" value="${values[4]}" required>
+                            <div class="th-form-error">Oops, this is a required field!</div>
+                        </div>
+
+                        <div class="th-form-group" id="thFormBPoint">
+                            <label for="boardingPointInput">Boarding Point</label>
+                            <select id="boardingPointInput" name="boardingPointInput">
+                                ${routeSelect}
+                            </select>
+                        </div>
+                        <div class="th-form-group" id="thFormDPoint">
+                            <label for="dropingPointInput">Dropping Point</label>
+                            <select id="dropingPointInput" name="dropingPointInput">
+                                ${routeSelect}
+                            </select>
+                        </div>
+                    </form>`;
+
+                    Modal.open('Edit Order', html);
+
+                    let time = values[3];
+                    time = time[0] == 0 ? time.substr(1) : time;
+
+                    setTimeout(() => {
+                        // Set dropdown values
+                        $('#busStartInput').val(time);
+                        $('#boardingPointInput').val(values[5]);
+                        $('#dropingPointInput').val(values[6]);
+                    }, 10);
+                })
+
+            })(jQuery);
+        </script>
+    <?php
+    $script = ob_get_clean();
+    echo $script;
+}
+
 ?>
