@@ -22,7 +22,7 @@ function th_drivers_table_create()
     $table_name = $wpdb->prefix . 'th_drivers';
     $sql = "CREATE TABLE $table_name (
         driver_id int(15) NOT NULL AUTO_INCREMENT,
-        first_name varchar(55) NOT NULL,
+        user_name varchar(55) NOT NULL,
         last_name varchar(55) NOT NULL,
         phone varchar(55),
         email text,
@@ -936,21 +936,29 @@ function th_orders()
 
 add_action( 'wp_ajax_th_add_order_action', 'th_add_order_action' );
 function th_add_order_action() {
-    $id = sanitize_text_field($_POST['driver_id']);
-    $f_name = sanitize_text_field($_POST['f_name']);
-    $l_name = sanitize_text_field($_POST['l_name']);
-    $p_number = sanitize_text_field($_POST['p_number']);
-    $email = sanitize_text_field($_POST['email']);
+    $id = sanitize_text_field($_POST['order_id']);
+    $user_name = sanitize_text_field($_POST['user_name']);
+    $user_phone = sanitize_text_field($_POST['user_phone']);
+    $user_email = sanitize_text_field($_POST['user_email']);
+    $bus_id = sanitize_text_field($_POST['bus_id']);
+    $bus_start = sanitize_text_field($_POST['bus_start']);
+    $journey_date = sanitize_text_field($_POST['journey_date']);
+    $boarding_point = sanitize_text_field($_POST['boarding_point']);
+    $droping_point = sanitize_text_field($_POST['droping_point']);
 
-    $driver = new TH_Order($id);
+    $order = new TH_Order($id);
 
-    $driver->first_name = $f_name;
-    $driver->last_name = $l_name;
-    $driver->phone = $p_number;
-    $driver->email = $email;
+    $order->user_name = $user_name;
+    $order->user_phone = $user_phone;
+    $order->user_email = $user_email;
+    $order->bus_id = $bus_id;
+    $order->bus_start = $bus_start;
+    $order->journey_date = $journey_date;
+    $order->boarding_point = $boarding_point;
+    $order->droping_point = $droping_point;
 
     if ($id) {
-        $driver->update();
+        $order->update();
     } else {
         wp_die();
     }
@@ -1009,27 +1017,47 @@ function th_add_orders_scripts()
 
                     let error = false;
 
-                    const driver_id = $('#thAddDriverForm').attr('data-driver_id');
+                    const order_id = $('#thAddOrderForm').attr('data-order_id');
 
-                    const f_name = $('#firstNameInput').val();
-                    const l_name = $('#lastNameInput').val();
-                    const p_number = $('#phoneNumberInput').val();
-                    const email = $('#emailInput').val();
+                    const user_name = $('#userNameInput').val();
+                    const user_phone = $('#userPhoneInput').val();
+                    const user_email = $('#userEmailInput').val();
+                    const bus_id = $('#busStartInput').val();
+                    const bus_start = $('#busStartInput option:selected').text();
+                    const journey_date = $('#journeyDateInput').val();
+                    const boarding_point = $('#boardingPointInput').val();
+                    const droping_point = $('#dropingPointInput').val();
 
-                    return;
+                    const data = {action: 'th_add_order_action', order_id, user_name, user_phone, user_email, bus_id, bus_start, journey_date, boarding_point, droping_point};
 
-                    if (!f_name) {
-                        $('#firstNameInput').parent().addClass('th-form-group-error');
+                    if (!user_name) {
+                        $('#userNameInput').parent().addClass('th-form-group-error');
                         error = true;
                     }
-                    if (!l_name) {
-                        $('#lastNameInput').parent().addClass('th-form-group-error');
+                    if (!user_phone) {
+                        $('#userPhoneInput').parent().addClass('th-form-group-error');
+                        error = true;
+                    }
+                    if (!bus_id || !bus_start) {
+                        $('#busStartInput').parent().addClass('th-form-group-error');
+                        error = true;
+                    }
+                    if (!journey_date) {
+                        $('#journeyDateInput').parent().addClass('th-form-group-error');
+                        error = true;
+                    }
+                    if (!boarding_point) {
+                        $('#boardingPointInput').parent().addClass('th-form-group-error');
+                        error = true;
+                    }
+                    if (!droping_point) {
+                        $('#dropingPointInput').parent().addClass('th-form-group-error');
                         error = true;
                     }
 
                     if (error) return;
 
-                    $.post(ajaxurl, {action: 'th_add_order_action', driver_id, f_name, l_name, p_number, email}, function(response) {
+                    $.post(ajaxurl, data, function(response) {
                         if (response === 'success') location.reload();
                     })
                 }
@@ -1042,7 +1070,15 @@ function th_add_orders_scripts()
                     const elements = parent_row.children('td');
                     const values = [];
 
-                    elements.each((index, el) => values.push($(el).html()))
+                    let bus_id;
+
+                    elements.each((index, el) => {
+                        values.push($(el).html())
+
+                        if ($(el).attr('data-bus_id')) {
+                            bus_id = $(el).attr('data-bus_id');
+                        }
+                    })
 
                     const busTime = values[3]; // th_to_24hr_time(values[3]);
 
@@ -1099,11 +1135,48 @@ function th_add_orders_scripts()
 
                     setTimeout(() => {
                         // Set dropdown values
-                        $('#busStartInput').val(time);
+                        $('#busStartInput').val(bus_id);
                         $('#boardingPointInput').val(values[5]);
                         $('#dropingPointInput').val(values[6]);
+
+                        th_updateDisabledOptions();
                     }, 10);
-                })
+                });
+
+                const dia = ['DIA'];
+                const noco = ['Centerra Park and Ride', 'Ft Collins Harmony Transfer Center', 'Windsor Park and Ride'];
+
+                const southbound_routes = ['179', '153', '49', '183', '185'];
+                const northbound_routes = ['181', '187', '189', '191', '193'];
+
+                $('body').on('change', '#busStartInput', function() {
+                    th_updateDisabledOptions();
+                });
+
+                
+                function th_updateDisabledOptions() {
+                    const bus_id = $('#busStartInput').val();
+
+                    if (southbound_routes.indexOf(bus_id) >= 0) {
+                        if ($('#boardingPointInput').val() === 'DIA') $('#boardingPointInput').val('Ft Collins Harmony Transfer Center');
+                        if ($('#dropingPointInput').val() !== 'DIA') $('#dropingPointInput').val('DIA');
+
+                        $('#boardingPointInput option[data-location="dia"]').attr('disabled', true);
+                        $('#boardingPointInput option[data-location="noco"]').attr('disabled', false);
+
+                        $('#dropingPointInput option[data-location="dia"]').attr('disabled', false);
+                        $('#dropingPointInput option[data-location="noco"]').attr('disabled', true);
+                    } else if (northbound_routes.indexOf(bus_id) >= 0) {
+                        if ($('#boardingPointInput').val() !== 'DIA') $('#boardingPointInput').val('DIA');
+                        if ($('#dropingPointInput').val() === 'DIA') $('#dropingPointInput').val('Ft Collins Harmony Transfer Center');
+
+                        $('#boardingPointInput option[data-location="dia"]').attr('disabled', false);
+                        $('#boardingPointInput option[data-location="noco"]').attr('disabled', true);
+
+                        $('#dropingPointInput option[data-location="dia"]').attr('disabled', true);
+                        $('#dropingPointInput option[data-location="noco"]').attr('disabled', false);
+                    }
+                }
 
             })(jQuery);
         </script>

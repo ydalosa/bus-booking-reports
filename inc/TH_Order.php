@@ -36,7 +36,7 @@ if ( !class_exists('TH_Order' ) ) {
         }
 
         public function update()
-        {
+        {           
             $this->wpdb->update(
                 $this->table,
                 array(
@@ -46,6 +46,7 @@ if ( !class_exists('TH_Order' ) ) {
                     'user_email' => $this->user_email,
                     'user_phone' => $this->user_phone,
                     'bus_start' => $this->bus_start,
+                    'bus_id' => $this->bus_id,
                     'journey_date' => $this->journey_date,
                 ),
                 array(
@@ -102,7 +103,7 @@ if ( !class_exists('TH_Order' ) ) {
                 $journey_date = $d->journey_date;
 
 
-                $table .= "<tr data-booking_id='$id'><td>$user_name</td><td>$user_phone</td><td>$user_email</td><td>$bus_start</td><td>$journey_date</td><td>$boarding_point</td><td>$droping_point</td><td><button class='th-btn th-edit-order' data-order_id='$id'><span class='dashicons dashicons-admin-generic'></span></button></td></tr>";
+                $table .= "<tr data-booking_id='$id'><td>$user_name</td><td>$user_phone</td><td>$user_email</td><td data-bus_id='$bus_id'>$bus_start</td><td>$journey_date</td><td>$boarding_point</td><td>$droping_point</td><td><button class='th-btn th-edit-order' data-order_id='$id'><span class='dashicons dashicons-admin-generic'></span></button></td></tr>";
             }
 
             // Add to table extra dropdown resources
@@ -122,7 +123,8 @@ if ( !class_exists('TH_Order' ) ) {
 
             foreach ($routes as $r) {
                 $name = $r->name;
-                $html .= "<option value='$name'>$name</option>";
+                $location = $name === 'DIA' ? 'dia' : 'noco';
+                $html .= "<option value='$name' data-location='$location'>$name</option>";
             }
 
             $html .= "</select>";
@@ -146,7 +148,7 @@ if ( !class_exists('TH_Order' ) ) {
 
                 $val = $title[0] . ' ' . $title[1]; 
 
-                $html .= "<option value='$val'>$val</option>";
+                $html .= "<option value='$p->ID'>$val</option>";
             }
 
             $html .= "</select>";
