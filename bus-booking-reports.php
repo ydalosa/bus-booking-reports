@@ -53,6 +53,8 @@ if (is_plugin_active('woocommerce/woocommerce.php')) {
     require_once(dirname(__FILE__) . "/inc/TH_Driver.php");
     require_once(dirname(__FILE__) . "/inc/TH_Order.php");
     require_once(dirname(__FILE__) . "/inc/TH_Strings.php");
+    require_once(dirname(__FILE__) . "/inc/TH_Strings.php");
+    require_once(dirname(__FILE__) . "/inc/clean/th_shortcode.php");
 }
 
 // Require autoloader
@@ -1185,4 +1187,33 @@ function th_add_orders_scripts()
     echo $script;
 }
 
+function th_add_manifest_scripts()
+{
+    ob_start();
+?>
+    <script>
+        (function($) {
+            $('body').on('change', '#date', function() {
+                var urlParams = new URLSearchParams(window.location.search);
+
+                const day_is_set = urlParams.get('date');
+
+                urlParams.set('date', $(this).val());
+                if (day_is_set) {
+                    window.location = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
+                } else {
+                    window.location = `${window.location.href}?${urlParams.toString()}`;
+                }
+            })
+
+            $('body').on('click', '#today', function() {
+                window.location = `${window.location.origin}${window.location.pathname}`;
+            });
+        })(jQuery);
+        </script>
+    <?php
+    $script = ob_get_clean();
+
+    return $script;
+}
 ?>
