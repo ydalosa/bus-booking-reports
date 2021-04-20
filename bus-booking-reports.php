@@ -185,7 +185,7 @@ function th_build_calendar($month, $year, $dateBuild)
     echo $calendar;
 }
 
-function th_bus_bookings($dateBuild, $fromDia = FALSE)
+function th_bus_bookings($dateBuild, $fromDia = FALSE, $shortcode = FALSE)
 {
     $start = $fromDia ? 'DIA' : 'Ft Collins Harmony Transfer Center';
     $end = $fromDia ? 'Ft Collins Harmony Transfer Center' : 'DIA';
@@ -275,6 +275,14 @@ function th_bus_bookings($dateBuild, $fromDia = FALSE)
                         // @todo GET ACTUal passenge name from DB
                         $name .= '<div><b>Name: </b>'.$r->user_name.'</div>';
                         $name .= '<div><b>Phone: </b>' . $r->user_phone.'</div>';
+
+                        if ($shortcode) {
+                                if (!$fromDia) {
+                                $name .= '<div>'.$r->boarding_point.'</div>';
+                            } else {
+                                $name .= '<div>'.$r->droping_point.'</div>';
+                            }
+                        }
                         $name .= '<div><a class="th-btn" target="_blank" href="/wp-admin/post.php?post=' . $r->order_id . '&action=edit">View Order</a></div>';
 
                         $name .= '</div>';
@@ -398,36 +406,6 @@ function th_generate_report($id, $dateBuild) {
     }
 
     th_generate_report_html($results, $title);
-
-
-
-/*       foreach ($order_ids as $o_id) {
-        $order = wc_get_order($o_id->order_id);
-        if ($order->get_status() !== 'completed') continue;
-
-         $query = "SELECT droping_point, bus_start, journey_date FROM $table_name WHERE order_id='$o_id->order_id' AND journey_date='$dateBuild'";
-
-        $droppingPointBuild = $wpdb->get_results($query);//->droping_point;
-        $droppingPoint = $droppingPointBuild[0]->droping_point;
-        $busStart = $droppingPointBuild[0]->bus_start;
-        $journeyDate = $droppingPointBuild[0]->journey_date;
-
-
-        $results[] = [
-          'ID' => $o_id->order_id,
-          'Pickup Time' => $busStart,
-          'Boarding Point' => $p->boarding_point,
-          'Dropping Point' => $droppingPoint,
-          'Tickets' => $o_id->tickets_purchased,
-          'First Name' => $order->get_billing_first_name(),
-          'Last Name' => $order->get_billing_last_name(),
-          'Phone' => $order->get_billing_phone(),
-          'Email' => $order->get_billing_email(),
-        ];
-      }
-    }
-    die();
-    th_generate_report_html($results, $title); */
 }
 
 function th_show_reports() {
@@ -928,6 +906,7 @@ function th_orders()
     $table = TH_Order::buildTable();
 
     $html = '<h2>In progress, do not use!</h2>';
+    $html .= '<div><button class="th-add-order">Add Order</button></div>';
     $html .= $table;
 
     echo $html;
@@ -938,34 +917,61 @@ function th_orders()
 
 add_action( 'wp_ajax_th_add_order_action', 'th_add_order_action' );
 function th_add_order_action() {
-    $id = sanitize_text_field($_POST['order_id']);
+    $id = sanitize_text_field($_POST['booking_id']);
     $user_name = sanitize_text_field($_POST['user_name']);
     $user_phone = sanitize_text_field($_POST['user_phone']);
-    $user_email = sanitize_text_field($_POST['user_email']);
+
     $bus_id = sanitize_text_field($_POST['bus_id']);
     $bus_start = sanitize_text_field($_POST['bus_start']);
     $journey_date = sanitize_text_field($_POST['journey_date']);
     $boarding_point = sanitize_text_field($_POST['boarding_point']);
     $droping_point = sanitize_text_field($_POST['droping_point']);
-
-    $order = new TH_Order($id);
-
-    $order->user_name = $user_name;
-    $order->user_phone = $user_phone;
-    $order->user_email = $user_email;
-    $order->bus_id = $bus_id;
-    $order->bus_start = $bus_start;
-    $order->journey_date = $journey_date;
-    $order->boarding_point = $boarding_point;
-    $order->droping_point = $droping_point;
+    @$ticket_count = sanitize_text_field($_POST['ticket_count']);
+    @$order_id = sanitize_text_field($_POST['order_id']);
 
     if ($id) {
-        $order->update();
+        $order = new TH_Order($id);
+    
+        $order->user_name = $user_name;
+        $order->user_phone = $user_phone;
+    
+        $order->bus_id = $bus_id;
+        $order->bus_start = $bus_start;
+        $order->journey_date = $journey_date;
+        $order->boarding_point = $boarding_point;
+        $order->droping_point = $droping_point;
+    
+        if ($id) {
+            $order->update();
+        } else {
+            wp_die();
+        }
+    
+        echo 'success';
     } else {
-        wp_die();
+        // If creating a new order
+        $count = 1;
+        while ($count <= $ticket_count) {
+            $order = new TH_Order();
+
+            $order->order_id = $order_id;
+            $order->user_name = $user_name;
+            $order->user_phone = $user_phone;
+        
+            $order->bus_id = $bus_id;
+            $order->bus_start = $bus_start;
+            $order->journey_date = $journey_date;
+            $order->boarding_point = $boarding_point;
+            $order->droping_point = $droping_point;
+    
+            $order->save();
+
+            $count++;
+        }
+
+        echo 'success';
     }
 
-    echo 'success';
     wp_die();
 }
 
@@ -1019,18 +1025,17 @@ function th_add_orders_scripts()
 
                     let error = false;
 
-                    const order_id = $('#thAddOrderForm').attr('data-order_id');
+                    const booking_id = $('#thAddOrderForm').attr('data-booking_id');
 
                     const user_name = $('#userNameInput').val();
                     const user_phone = $('#userPhoneInput').val();
-                    const user_email = $('#userEmailInput').val();
                     const bus_id = $('#busStartInput').val();
                     const bus_start = $('#busStartInput option:selected').text();
                     const journey_date = $('#journeyDateInput').val();
                     const boarding_point = $('#boardingPointInput').val();
                     const droping_point = $('#dropingPointInput').val();
 
-                    const data = {action: 'th_add_order_action', order_id, user_name, user_phone, user_email, bus_id, bus_start, journey_date, boarding_point, droping_point};
+                    const data = {action: 'th_add_order_action', booking_id, user_name, user_phone, bus_id, bus_start, journey_date, boarding_point, droping_point};
 
                     if (!user_name) {
                         $('#userNameInput').parent().addClass('th-form-group-error');
@@ -1057,6 +1062,26 @@ function th_add_orders_scripts()
                         error = true;
                     }
 
+                    // Adding new
+                    if ($('#ticketInput').length) {
+                        let ticket_count = $('#ticketInput').val();
+
+                        if (!ticket_count) {
+                            $('#ticketInput').parent().addClass('th-form-group-error');
+                            error = true;
+                        } else {
+                            data.ticket_count = ticket_count;
+                        }
+
+                        const order_id = $('#orderIdInput').val();
+                        if (!order_id) {
+                            $('#orderIdInput').parent().addClass('th-form-group-error');
+                            error = true;
+                        } else {
+                            data.order_id = order_id;
+                        }
+                    }
+
                     if (error) return;
 
                     $.post(ajaxurl, data, function(response) {
@@ -1065,8 +1090,98 @@ function th_add_orders_scripts()
                 }
 
                 // Manage driver
+                $('body').on('click', '.th-add-order', function() {
+                    // const booking_id = $(this).attr('data-booking_id');
+                    // const parent_row = $(this).parents('tr');
+
+                    // const elements = parent_row.children('td');
+                    // const values = [];
+
+                    // let bus_id;
+
+                    // elements.each((index, el) => {
+                    //     values.push($(el).html())
+
+                    //     if ($(el).attr('data-bus_id')) {
+                    //         bus_id = $(el).attr('data-bus_id');
+                    //     }
+                    // })
+
+                    // const busTime = values[2]; // th_to_24hr_time(values[3]);
+
+                    const routeSelect = $('#thRoutesDropdown').html();
+                    const timeSelect = $('#thTimesDropdown').html();
+                    const orderSelect = $('#thOrdersDropdown').html();
+
+                    console.log(routeSelect)
+                    console.log(timeSelect)
+
+                    const html = `<form id="thAddOrderForm">
+                        <div class="th-form-group">
+                            <label for="userNameInput">Name</label>
+                            <input type="text" class="form-control" id="userNameInput" name="userNameInput" placeholder="Name" required>
+                        </div>
+                        <div class="th-form-group">
+                            <label for="userPhoneInput">Phone Number</label>
+                            <input type="tel" class="form-control" id="userPhoneInput" name="userPhoneInput" placeholder="Phone Number">
+                        </div>
+
+                        <div class="th-form-group">
+                            <label for="busStartInput">Time</label>
+                            <select id="busStartInput" name="busStartInput">
+                                ${timeSelect}
+                            </select>
+                        </div>
+                        <div class="th-form-group">
+                            <label for="journeyDateInput">Bus Date</label>
+                            <input type="date" class="form-control" id="journeyDateInput" name="journeyDateInput" placeholder="Bus Date" required>
+                            <div class="th-form-error">Oops, this is a required field!</div>
+                        </div>
+
+                        <div class="th-form-group" id="thFormBPoint">
+                            <label for="boardingPointInput">Boarding Point</label>
+                            <select id="boardingPointInput" name="boardingPointInput">
+                                ${routeSelect}
+                            </select>
+                        </div>
+                        <div class="th-form-group" id="thFormDPoint">
+                            <label for="dropingPointInput">Dropping Point</label>
+                            <select id="dropingPointInput" name="dropingPointInput">
+                                ${routeSelect}
+                            </select>
+                        </div>
+                        <div class="th-form-group" id="thFormTickets">
+                            <label for="ticketInput">Tickets</label>
+                            <input class="form-control" type="number" min="1" id="ticketInput" name="ticketInput" />
+                            <div class="th-form-error">Oops, this is a required field!</div>
+                        </div>
+                        <div class="th-form-group" id="thFormOrder">
+                            <label for="orderIdInput">Order #</label>
+                            <select id="orderIdInput" name="orderIdInput">
+                                ${orderSelect}
+                            </select>
+                        </div>
+
+                    </form>`;
+
+                    Modal.open('Create Order', html);
+
+                    // let time = values[2];
+                    // time = time[0] == 0 ? time.substr(1) : time;
+
+                    setTimeout(() => {
+                        // Set dropdown values
+                        // $('#busStartInput').val(bus_id);
+                        // $('#boardingPointInput').val(values[4]);
+                        // $('#dropingPointInput').val(values[5]);
+
+                        th_updateDisabledOptions();
+                    }, 10);
+                });
+
+                // Manage order
                 $('body').on('click', '.th-edit-order', function() {
-                    const order_id = $(this).attr('data-order_id');
+                    const booking_id = $(this).attr('data-booking_id');
                     const parent_row = $(this).parents('tr');
 
                     const elements = parent_row.children('td');
@@ -1082,7 +1197,7 @@ function th_add_orders_scripts()
                         }
                     })
 
-                    const busTime = values[3]; // th_to_24hr_time(values[3]);
+                    const busTime = values[2]; // th_to_24hr_time(values[3]);
 
                     const routeSelect = $('#thRoutesDropdown').html();
                     const timeSelect = $('#thTimesDropdown').html();
@@ -1090,7 +1205,7 @@ function th_add_orders_scripts()
                     console.log(routeSelect)
                     console.log(timeSelect)
 
-                    const html = `<form id="thAddOrderForm" data-order_id="${order_id}">
+                    const html = `<form id="thAddOrderForm" data-booking_id="${booking_id}">
                         <div class="th-form-group">
                             <label for="userNameInput">Name</label>
                             <input type="text" class="form-control" id="userNameInput" name="userNameInput" placeholder="Name" value="${values[0]}" required>
@@ -1098,10 +1213,6 @@ function th_add_orders_scripts()
                         <div class="th-form-group">
                             <label for="userPhoneInput">Phone Number</label>
                             <input type="tel" class="form-control" id="userPhoneInput" name="userPhoneInput" placeholder="Phone Number" value="${values[1]}">
-                        </div>
-                        <div class="th-form-group">
-                            <label for="userEmailInput">Email</label>
-                            <input type="text" class="form-control" id="userEmailInput" name="userEmailInput" placeholder="Email" value="${values[2]}">
                         </div>
 
                         <div class="th-form-group">
@@ -1112,7 +1223,7 @@ function th_add_orders_scripts()
                         </div>
                         <div class="th-form-group">
                             <label for="journeyDateInput">Bus Date</label>
-                            <input type="date" class="form-control" id="journeyDateInput" name="journeyDateInput" placeholder="Bus Date" value="${values[4]}" required>
+                            <input type="date" class="form-control" id="journeyDateInput" name="journeyDateInput" placeholder="Bus Date" value="${values[3]}" required>
                             <div class="th-form-error">Oops, this is a required field!</div>
                         </div>
 
@@ -1132,14 +1243,14 @@ function th_add_orders_scripts()
 
                     Modal.open('Edit Order', html);
 
-                    let time = values[3];
+                    let time = values[2];
                     time = time[0] == 0 ? time.substr(1) : time;
 
                     setTimeout(() => {
                         // Set dropdown values
                         $('#busStartInput').val(bus_id);
-                        $('#boardingPointInput').val(values[5]);
-                        $('#dropingPointInput').val(values[6]);
+                        $('#boardingPointInput').val(values[4]);
+                        $('#dropingPointInput').val(values[5]);
 
                         th_updateDisabledOptions();
                     }, 10);

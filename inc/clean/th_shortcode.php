@@ -16,8 +16,8 @@ function th_manifest_list($atts)
 
     $build .= '<div class="mar_b pull-right"><label for="date">Date: </label><br><input id="date" type="date" for="date" value="'. $date .'" /></div>';
     $build .= '<div class="th-bus-manifest-container">';
-    $build .= '<div class="th-bus-column">' .th_bus_bookings($date) . '</div>';
-    $build .= '<div class="th-bus-column">' .th_bus_bookings($date, true) . '</div>';
+    $build .= '<div class="th-bus-column">' .th_bus_bookings($date, false, true) . '</div>';
+    $build .= '<div class="th-bus-column">' .th_bus_bookings($date, true, true) . '</div>';
     $build .= '</div>';
 
     $build .= th_add_manifest_scripts();
