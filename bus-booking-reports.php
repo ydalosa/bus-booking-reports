@@ -905,7 +905,7 @@ function th_orders()
 {
     $table = TH_Order::buildTable();
 
-    $html = '<h2>In progress, do not use!</h2>';
+    // $html = '<h2>In progress, do not use!</h2>';
     $html .= '<div><button class="th-add-order">Add Order</button></div>';
     $html .= $table;
 
